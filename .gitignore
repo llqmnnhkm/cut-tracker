@@ -1,0 +1,7 @@
+node_modules
+dist
+dev-dist
+*.local
+.claude
+# Holds personal details that stay out of the public repo.
+CLAUDE.md
