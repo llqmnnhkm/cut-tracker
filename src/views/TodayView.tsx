@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { Bar, CheckRow, DateBar, Note, SafetyBanners, Tick, fmt, isStandalone, litres, type DateNav } from '../components';
+import { Bar, CheckRow, DateBar, Note, SafetyBanners, Tick, fmt, litres, type DateNav } from '../components';
 import { shortDate } from '../dates';
 import {
   ABOVE_CHECKPOINT_NOTE,
@@ -17,33 +17,58 @@ import {
   WEIGH_IN,
   WEIGH_IN_FOCUS,
   type FlagId,
+  type SessionId,
 } from '../plan';
 import { dayPlan, isAboveDecisionLimit, nextCheckpoint, phaseFor, showRebound, targetsFor, totals } from '../rules';
 import { updateDay, type Store } from '../store';
 import { sessionLabel } from '../workout';
 
-interface RowProps {
+const COINS: Record<SessionId, string> = {
+  A: 'A',
+  B: 'B',
+  C: 'C',
+  'B-light': 'B',
+  intervals: 'I',
+  cardio: 'W',
+  rest: 'R',
+  steps: 'S',
+  'weigh-in': 'KG',
+};
+
+export function SessionCoin({ session, done }: { session: SessionId; done?: boolean }) {
+  return (
+    <span class={done ? 'coin coin-done' : 'coin'} aria-hidden="true">
+      {done ? <Tick /> : COINS[session]}
+    </span>
+  );
+}
+
+interface StatProps {
+  index: number;
   label: string;
   value: string;
-  target?: string;
+  unit?: string;
+  of?: string;
   ratio?: number;
+  food?: boolean;
   done?: boolean;
   children?: ComponentChildren;
 }
 
-function Row({ label, value, target, ratio, done, children }: RowProps) {
+function Stat({ index, label, value, unit, of, ratio, food, done, children }: StatProps) {
   return (
-    <a class="row" href="#log">
-      <div class="row-line">
-        <span class="row-label">{label}</span>
-        <span class="num row-value">
-          {done && <Tick />}
-          <strong>{value}</strong>
-          {target && <span class="muted"> / {target}</span>}
-        </span>
-      </div>
-      {ratio !== undefined && <Bar ratio={ratio} />}
-      {children && <div class="row-note">{children}</div>}
+    <a class="stat" href="#log" style={{ '--i': index }}>
+      <span class="stat-label">
+        {label}
+        {done && <Tick />}
+      </span>
+      <b>
+        {value}
+        {unit && <span class="unit">{unit}</span>}
+      </b>
+      {of && <small>{of}</small>}
+      {ratio !== undefined && <Bar ratio={ratio} tone={food ? 'food' : done ? 'done' : undefined} />}
+      {children && <small class="stat-note">{children}</small>}
     </a>
   );
 }
@@ -76,81 +101,82 @@ export function TodayView({ store, date, today, setDate }: DateNav & { store: St
       <DateBar date={date} today={today} setDate={setDate} />
       <SafetyBanners day={day} />
 
-      {!isStandalone() && (
-        <p class="alert">
-          Add this to your Home Screen before logging anything: Share, then Add to Home Screen. Logs made in Safari stay
-          in Safari, and iOS can clear them after 7 days without use.
-        </p>
-      )}
-
-      <a class="session" href="#workout">
-        <span class="label">Session</span>
-        <span class="session-name">
-          {sessionLabel(day)}
-          {log?.workoutDone && <Tick />}
+      <a class="tile" href="#workout">
+        <SessionCoin session={day.session} done={log?.workoutDone} />
+        <span class="tile-text">
+          <span class="label">Session</span>
+          <span class="session-name">{sessionLabel(day)}</span>
+          <span class="tile-sub">{log?.workoutDone ? 'Done' : 'Open checklist'}</span>
         </span>
+        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
       </a>
 
       <section class="ledger" aria-label="Today's progress">
-        <Row
-          label="Steps"
-          value={fmt(steps)}
-          target={day.steps !== null ? fmt(day.steps) : undefined}
-          ratio={day.steps !== null ? steps / day.steps : undefined}
-          done={day.steps !== null && steps >= day.steps}
-        >
-          {day.steps === null && 'No step target today.'}
-          {day.steps !== null && day.plannedSteps !== day.steps && `Lowered from ${fmt(day.plannedSteps!)} today.`}
-        </Row>
-        {targets ? (
-          <>
-            <Row label="Calories" value={fmt(sum.kcal)} target={fmt(targets.kcal)} ratio={sum.kcal / targets.kcal}>
-              {hasRange && `Estimate: ${fmt(sum.kcalLow)}–${fmt(sum.kcalHigh)} kcal. `}
-              {sum.kcal > targets.kcal && OVER_TARGET_NOTE}
-            </Row>
-            <Row label="Protein" value={`${fmt(sum.protein)} g`} target={`${targets.protein} g`} ratio={sum.protein / targets.protein} />
-            <Row label="Carbs" value={`${fmt(sum.carbs)} g`} target={`${targets.carbs} g`} ratio={sum.carbs / targets.carbs} />
-            <Row label="Fat" value={`${fmt(sum.fat)} g`} target={`${targets.fat} g`} ratio={sum.fat / targets.fat} />
-          </>
-        ) : (
-          <Row label="Calories" value={fmt(sum.kcal)}>
-            No target today.
-          </Row>
+        <div class="stats">
+          <Stat
+            index={0}
+            label="Steps"
+            value={fmt(steps)}
+            of={day.steps !== null ? `of ${fmt(day.steps)}` : undefined}
+            ratio={day.steps !== null ? steps / day.steps : undefined}
+            done={day.steps !== null && steps >= day.steps}
+          >
+            {day.steps === null && 'No step target today.'}
+            {day.steps !== null && day.plannedSteps !== day.steps && `Lowered from ${fmt(day.plannedSteps!)} today.`}
+          </Stat>
+          <Stat
+            index={1}
+            label="Calories"
+            value={fmt(sum.kcal)}
+            of={targets ? `of ${fmt(targets.kcal)} kcal` : undefined}
+            ratio={targets ? sum.kcal / targets.kcal : undefined}
+            food
+          >
+            {!targets && 'No target today.'}
+            {hasRange && `Estimate: ${fmt(sum.kcalLow)}–${fmt(sum.kcalHigh)} kcal. `}
+            {targets && sum.kcal > targets.kcal && OVER_TARGET_NOTE}
+          </Stat>
+        </div>
+
+        {targets && (
+          <div class="stats stats-3">
+            <Stat index={2} label="Protein" value={fmt(sum.protein)} unit="g" of={`of ${targets.protein} g`} ratio={sum.protein / targets.protein} food />
+            <Stat index={3} label="Carbs" value={fmt(sum.carbs)} unit="g" of={`of ${targets.carbs} g`} ratio={sum.carbs / targets.carbs} food />
+            <Stat index={4} label="Fat" value={fmt(sum.fat)} unit="g" of={`of ${targets.fat} g`} ratio={sum.fat / targets.fat} food />
+          </div>
         )}
-        <Row
-          label="Water"
-          value={`${litres(water)} L`}
-          target={hasWaterTarget ? '3–4 L' : undefined}
-          ratio={hasWaterTarget ? water / 3000 : undefined}
-          done={hasWaterTarget && water >= 3000}
-        >
-          {date >= '2026-11-12' && waterNote(date)}
-        </Row>
-        <Row label="Weight" value={log?.weight !== undefined ? `${log.weight} kg` : '–'}>
-          {checkpointToday
-            ? `Checkpoint today: ≤ ${checkpointToday.target.toFixed(1)} kg.`
-            : next && `Next checkpoint: ≤ ${next.target.toFixed(1)} kg on ${shortDate(next.date)}.`}
-          {checkpointToday && date !== WEIGH_IN && log?.weight !== undefined && log.weight > checkpointToday.target && ` ${ABOVE_CHECKPOINT_NOTE}`}
-        </Row>
+
+        <div class="stats">
+          <Stat
+            index={5}
+            label="Water"
+            value={litres(water)}
+            unit="L"
+            of={hasWaterTarget ? 'of 3–4 L' : undefined}
+            ratio={hasWaterTarget ? water / 3000 : undefined}
+            done={hasWaterTarget && water >= 3000}
+          >
+            {date >= '2026-11-12' && waterNote(date)}
+          </Stat>
+          <Stat index={6} label="Weight" value={log?.weight !== undefined ? `${log.weight}` : '–'} unit={log?.weight !== undefined ? 'kg' : undefined}>
+            {checkpointToday
+              ? `Checkpoint today: ≤ ${checkpointToday.target.toFixed(1)} kg.`
+              : next && `Next: ≤ ${next.target.toFixed(1)} kg on ${shortDate(next.date)}.`}
+            {checkpointToday && date !== WEIGH_IN && log?.weight !== undefined && log.weight > checkpointToday.target && ` ${ABOVE_CHECKPOINT_NOTE}`}
+          </Stat>
+        </div>
       </section>
 
       {date >= DECISION_DATE && date <= WEIGH_IN && isAboveDecisionLimit(store) && <Note>{DECISION_NOTE}</Note>}
       {showRebound(date) && <Note>{REBOUND_NOTE}</Note>}
 
-      <section class="block">
-        <h2>Food focus</h2>
+      <section class="panel">
+        <h3>Food focus</h3>
         <p>{phase ? PHASES[phase].focus : WEIGH_IN_FOCUS}</p>
       </section>
 
-      {day.jog && (
-        <section class="block">
-          <h2>Optional jog</h2>
-          <p>{JOG_NOTE}</p>
-        </section>
-      )}
-
-      <section class="block">
-        <h2>How are you today?</h2>
+      <section class="panel">
+        <h3>How are you today?</h3>
         <p class="muted-text">Tick anything that applies. The plan adjusts for you.</p>
         <ul class="flags">
           {FLAGS.map((f) => {
@@ -164,6 +190,13 @@ export function TodayView({ store, date, today, setDate }: DateNav & { store: St
           })}
         </ul>
       </section>
+
+      {day.jog && (
+        <section class="panel">
+          <h3>Optional jog</h3>
+          <p>{JOG_NOTE}</p>
+        </section>
+      )}
     </>
   );
 }

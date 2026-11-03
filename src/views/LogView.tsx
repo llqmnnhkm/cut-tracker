@@ -13,7 +13,7 @@ function MealForm({ onAdd }: { onAdd: (meal: Meal) => void }) {
   const input = (key: keyof typeof blank, label: string, numeric = true) => (
     <label class="field">
       <span class="field-label">{label}</span>
-      <span class="field-entry">
+      <span class="inp">
         <input
           class={numeric ? 'num' : ''}
           type="text"
@@ -60,7 +60,7 @@ function MealForm({ onAdd }: { onAdd: (meal: Meal) => void }) {
         {input('fat', 'Fat g')}
       </div>
       {error && <p class="field-error">{error}</p>}
-      <button class="button" type="submit">
+      <button class="btn" type="submit">
         Add meal
       </button>
     </form>
@@ -85,60 +85,66 @@ export function LogView({ store, date, today, setDate }: DateNav & { store: Stor
     <>
       <DateBar date={date} today={today} setDate={setDate} />
 
-      <section class="block" key={date}>
-        <h2>Morning weight</h2>
-        <NumberField label="Weight" unit="kg" decimal min={30} max={250} value={log.weight} onCommit={(weight) => change({ weight })} />
+      <section class="panel" key={date}>
+        <h3>Morning weight</h3>
+        <NumberField label="Weight" hideLabel big unit="kg" decimal min={30} max={250} value={log.weight} onCommit={(weight) => change({ weight })} />
         <p class="muted-text">{WEIGH_NOTE}</p>
       </section>
 
-      <section class="block" key={`${date}-steps`}>
-        <h2>Steps</h2>
-        <NumberField label="Total so far, from Apple Fitness" max={200000} value={log.steps} onCommit={(steps) => change({ steps })} />
-        {day.steps !== null && <p class="muted-text">Target today: {fmt(day.steps)}.</p>}
+      <section class="panel" key={`${date}-steps`}>
+        <h3>Steps</h3>
+        <NumberField label="Steps" hideLabel big max={200000} value={log.steps} onCommit={(steps) => change({ steps })} />
+        <p class="muted-text">
+          Total so far, from Apple Fitness.{day.steps !== null && ` Target today: ${fmt(day.steps)}.`}
+        </p>
       </section>
 
-      <section class="block">
-        <h2>Water</h2>
-        <p class="num big-value">{litres(water)} L</p>
+      <section class="panel">
+        <h3>Water</h3>
+        <p class="big-value num">{litres(water)} L</p>
         {note && <p class="muted-text">{note}</p>}
         <div class="button-row">
-          <button class="button" type="button" onClick={() => addWater(250)}>+250 ml</button>
-          <button class="button" type="button" onClick={() => addWater(500)}>+500 ml</button>
-          <button class="button button-quiet" type="button" disabled={water === 0} onClick={() => addWater(-250)}>−250 ml</button>
+          <button class="btn btn-dark" type="button" onClick={() => addWater(250)}>+250 ml</button>
+          <button class="btn btn-dark" type="button" onClick={() => addWater(500)}>+500 ml</button>
+          <button class="btn btn-quiet" type="button" disabled={water === 0} onClick={() => addWater(-250)}>−250 ml</button>
         </div>
       </section>
 
-      <section class="block">
-        <h2>Food</h2>
-        <ul class="meals">
-          {(log.meals ?? []).map((m) => (
-            <li class="meal" key={m.id}>
-              <div class="meal-main">
-                <span>{m.name}</span>
-                <span class="num meal-macros">{macroLine(m)}</span>
-              </div>
-              <span class="num">{m.kcalHigh !== undefined ? `${fmt(m.kcal)}–${fmt(m.kcalHigh)}` : fmt(m.kcal)}</span>
-              <button
-                class="textlink"
-                type="button"
-                aria-label={`Remove ${m.name}`}
-                onClick={() => change({ meals: log.meals!.filter((x) => x.id !== m.id) })}
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
+      <section class="panel">
+        <h3>Food</h3>
         {(log.meals?.length ?? 0) > 0 && (
-          <p class="num meal-total">
-            Total {fmt(sum.kcal)} kcal · P {fmt(sum.protein)} · C {fmt(sum.carbs)} · F {fmt(sum.fat)}
-          </p>
+          <>
+            <ul class="meals">
+              {log.meals!.map((m) => (
+                <li class="meal" key={m.id}>
+                  <div>
+                    <span class="meal-name">{m.name}</span>
+                    <span class="meal-macros">{macroLine(m)}</span>
+                  </div>
+                  <div class="meal-side">
+                    <span class="meal-kcal num">{m.kcalHigh !== undefined ? `${fmt(m.kcal)}–${fmt(m.kcalHigh)}` : fmt(m.kcal)}</span>
+                    <button
+                      class="textlink textlink-quiet"
+                      type="button"
+                      aria-label={`Remove ${m.name}`}
+                      onClick={() => change({ meals: log.meals!.filter((x) => x.id !== m.id) })}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p class="meal-total num">
+              Total {fmt(sum.kcal)} kcal · P {fmt(sum.protein)} · C {fmt(sum.carbs)} · F {fmt(sum.fat)}
+            </p>
+          </>
         )}
         <MealForm onAdd={(meal) => change({ meals: [...(log.meals ?? []), meal] })} />
       </section>
 
-      <section class="block">
-        <h2>Workout</h2>
+      <section class="panel">
+        <h3>Workout</h3>
         <CheckRow checked={!!log.workoutDone} label="Workout done" onChange={(workoutDone) => change({ workoutDone })} />
       </section>
     </>

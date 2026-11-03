@@ -1,8 +1,9 @@
-import { CheckBox, DateBar, Note, SafetyBanners, fmt, type DateNav } from '../components';
+import { DateBar, Note, SafetyBanners, SetBox, fmt, type DateNav } from '../components';
 import { JOG_NOTE } from '../plan';
 import { dayPlan } from '../rules';
 import { updateDay, type Store } from '../store';
 import { buildChecklist, checkKeys, hasOpenRestBoxes, sessionLabel, type CheckItem } from '../workout';
+import { SessionCoin } from './TodayView';
 
 interface Props extends DateNav {
   store: Store;
@@ -31,39 +32,43 @@ export function WorkoutView({ store, date, today, setDate, onSetDone, onSessionO
       <DateBar date={date} today={today} setDate={setDate} />
       <SafetyBanners day={day} />
 
-      <div class="session session-static">
-        <span class="label">Session</span>
-        <span class="session-name">{sessionLabel(day)}</span>
-        {day.steps !== null && <span class="num meta">{fmt(day.steps)} steps</span>}
-      </div>
-
       {day.emergency ? null : (
         <>
+          <div class="tile">
+            <SessionCoin session={day.session} done={log?.workoutDone} />
+            <span class="tile-text">
+              <span class="label">Session</span>
+              <span class="session-name">{sessionLabel(day)}</span>
+              <span class="tile-sub">{day.steps !== null ? `${fmt(day.steps)} steps today` : 'No step target today'}</span>
+            </span>
+          </div>
+
           {list.message && <Note>{list.message}</Note>}
           {list.finisherSkipped && <Note>Skip the finisher today.</Note>}
 
           {list.groups.map((group) => (
-            <section class="block" key={group.title}>
-              <h2>{group.title}</h2>
+            <section class="panel" key={group.title}>
+              <h3>{group.title}</h3>
               {group.note && <p class="muted-text">{group.note}</p>}
-              <ul class="exercises">
+              <ul>
                 {group.items.map((item) => (
                   <li class={item.boxes === 1 ? 'exercise exercise-single' : 'exercise'} key={item.id}>
-                    <div class="exercise-head">
+                    <div>
                       <span class="exercise-name">{item.name}</span>
-                      <span class="num exercise-detail">{item.detail}</span>
+                      <span class="exercise-detail num">{item.detail}</span>
                     </div>
                     <div class="exercise-boxes">
                       {Array.from({ length: item.boxes }, (_, n) => (
-                        <CheckBox
+                        <SetBox
                           key={n}
+                          n={n + 1}
                           checked={!!checks[`${item.id}:${n}`]}
                           label={item.boxes > 1 ? `${item.name}, ${n + 1} of ${item.boxes}` : item.name}
                           onChange={(on) => toggle(item, n, on)}
                         />
                       ))}
                     </div>
-                    {item.easier && <p class="muted-text">{item.easier}</p>}
+                    {item.easier && <p class="easier">{item.easier}</p>}
                   </li>
                 ))}
               </ul>
@@ -72,8 +77,8 @@ export function WorkoutView({ store, date, today, setDate, onSetDone, onSessionO
 
           {list.footnote && <Note>{list.footnote}</Note>}
           {day.jog && (
-            <section class="block">
-              <h2>Optional jog</h2>
+            <section class="panel">
+              <h3>Optional jog</h3>
               <p>{JOG_NOTE}</p>
             </section>
           )}

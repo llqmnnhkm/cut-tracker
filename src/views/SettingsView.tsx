@@ -1,5 +1,5 @@
 import { useRef, useState } from 'preact/hooks';
-import { NumberField, isStandalone } from '../components';
+import { NumberField } from '../components';
 import { WEEKDAY_NAMES, localToday, shortDate } from '../dates';
 import { PHASES, type Macros, type PhaseId } from '../plan';
 import { parseStore, replaceStore, updateSettings, type Store } from '../store';
@@ -65,16 +65,13 @@ export function SettingsView({ store }: { store: Store }) {
         </div>
       </header>
 
-      <section class="block">
-        <h2>Your data</h2>
+      <section class="panel">
+        <h3>Your data</h3>
         <p>Logs are saved only on this phone. Nothing is uploaded, so a lost phone means lost logs unless you keep a backup.</p>
-        {!isStandalone() && (
-          <p class="muted-text">Add this to your Home Screen so iOS keeps your data: Share, then Add to Home Screen.</p>
-        )}
-        <p class="num meta">Last backup: {settings.lastBackup ? shortDate(settings.lastBackup) : 'never'}</p>
+        <p class="muted-text num">Last backup: {settings.lastBackup ? shortDate(settings.lastBackup) : 'never'}</p>
         <div class="button-row">
-          <button class="button" type="button" onClick={exportBackup}>Export backup</button>
-          <button class="button button-quiet" type="button" onClick={() => picker.current?.click()}>Restore</button>
+          <button class="btn" type="button" onClick={exportBackup}>Export backup</button>
+          <button class="btn btn-quiet" type="button" onClick={() => picker.current?.click()}>Restore</button>
         </div>
         <input
           ref={picker}
@@ -90,11 +87,11 @@ export function SettingsView({ store }: { store: Store }) {
         {message && <p class="muted-text" role="status">{message}</p>}
       </section>
 
-      <section class="block">
-        <h2>Rest day after the cut</h2>
+      <section class="panel">
+        <h3>Rest day after the cut</h3>
         <label class="field">
-          <span class="field-label">From 14 Nov the sessions repeat, with this day off.</span>
-          <span class="field-entry">
+          <span class="muted-text">From 14 Nov the sessions repeat, with this day off.</span>
+          <span class="inp inp-select">
             <select
               value={settings.restDay}
               onChange={(e) => updateSettings({ restDay: Number(e.currentTarget.value) })}
@@ -107,8 +104,8 @@ export function SettingsView({ store }: { store: Store }) {
         </label>
       </section>
 
-      <section class="block">
-        <h2>Nutrition targets</h2>
+      <section class="panel">
+        <h3>Nutrition targets</h3>
         <p class="muted-text">
           Use these to correct the numbers for you, not to cut harder. Going over a target never creates a deficit to make up.
         </p>
@@ -117,9 +114,9 @@ export function SettingsView({ store }: { store: Store }) {
           const current = settings.targets[id] ?? phase.targets;
           return (
             <div class="target-group" key={id}>
-              <h3>
-                {phase.label} <span class="num meta">{phase.dates}</span>
-              </h3>
+              <p class="target-title">
+                {phase.label} <span>{phase.dates}</span>
+              </p>
               <div class="grid-2">
                 {FIELDS.map((f) => (
                   <NumberField
@@ -136,7 +133,7 @@ export function SettingsView({ store }: { store: Store }) {
             </div>
           );
         })}
-        <button class="button button-quiet" type="button" onClick={() => updateSettings({ targets: {} })}>
+        <button class="btn btn-quiet" type="button" onClick={() => updateSettings({ targets: {} })}>
           Reset to the plan's numbers
         </button>
       </section>

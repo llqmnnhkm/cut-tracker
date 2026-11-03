@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import type { FlagId, Macros, PhaseId } from './plan';
+import type { Theme } from './theme';
 
 export interface Meal {
   id: string;
@@ -29,6 +30,7 @@ export interface Settings {
   targets: Partial<Record<PhaseId, Macros>>;
   restSeconds: number;
   lastBackup?: string;
+  theme?: Theme;
 }
 
 export interface Store {
@@ -79,6 +81,7 @@ function commit(next: Store) {
   listeners.forEach((l) => l());
 }
 
+export const getStore = () => current;
 export const didSaveFail = () => saveFailed;
 export const replaceStore = (next: Store) => commit(next);
 

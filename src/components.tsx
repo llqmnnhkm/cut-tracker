@@ -24,24 +24,23 @@ export function DateBar({ date, today, setDate }: DateNav) {
     <header class="datebar">
       <div>
         <h1>{weekdayName(date)}</h1>
-        <p class="num meta">
-          {shortDate(date)} <span aria-hidden="true">·</span> {dayCaption(date)}
+        <p class="meta">
+          <span>
+            {shortDate(date)} · {dayCaption(date)}
+          </span>
           {date !== today && (
-            <>
-              {' '}
-              <button type="button" class="textlink" onClick={() => setDate(today)}>
-                Back to today
-              </button>
-            </>
+            <button type="button" class="textlink" onClick={() => setDate(today)}>
+              Back to today
+            </button>
           )}
         </p>
       </div>
       <div class="datebar-arrows">
         <button type="button" class="arrow" aria-label="Previous day" disabled={date <= PLAN_START} onClick={() => setDate(addDays(date, -1))}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 7 12l8 8" /></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
         </button>
         <button type="button" class="arrow" aria-label="Next day" onClick={() => setDate(addDays(date, 1))}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 4 8 8-8 8" /></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
         </button>
       </div>
     </header>
@@ -51,7 +50,7 @@ export function DateBar({ date, today, setDate }: DateNav) {
 export function Tick() {
   return (
     <svg class="tick" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3.5 13.5c2 1.6 3.6 3.6 5 6.5 2.6-6.4 6.4-11.4 12-16" />
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
     </svg>
   );
 }
@@ -62,10 +61,11 @@ interface CheckProps {
   onChange: (checked: boolean) => void;
 }
 
-export function CheckBox({ checked, label, onChange }: CheckProps) {
+// One tappable set or round, numbered until it's done.
+export function SetBox({ checked, label, n, onChange }: CheckProps & { n: number }) {
   return (
-    <button type="button" role="checkbox" aria-checked={checked} aria-label={label} class="check" onClick={() => onChange(!checked)}>
-      <span class="check-box">{checked && <Tick />}</span>
+    <button type="button" role="checkbox" aria-checked={checked} aria-label={label} class={checked ? 'set set-on' : 'set'} onClick={() => onChange(!checked)}>
+      {checked ? <Tick /> : n}
     </button>
   );
 }
@@ -73,18 +73,16 @@ export function CheckBox({ checked, label, onChange }: CheckProps) {
 export function CheckRow({ checked, label, onChange }: CheckProps) {
   return (
     <button type="button" role="checkbox" aria-checked={checked} class="flag" onClick={() => onChange(!checked)}>
-      <span class="check">
-        <span class="check-box">{checked && <Tick />}</span>
-      </span>
+      <span class={checked ? 'check-box check-on' : 'check-box'}>{checked && <Tick />}</span>
       <span class="flag-text">{label}</span>
     </button>
   );
 }
 
-export function Bar({ ratio }: { ratio: number }) {
+export function Bar({ ratio, tone }: { ratio: number; tone?: 'food' | 'done' }) {
   return (
-    <div class="bar" aria-hidden="true">
-      <div class="bar-fill" style={{ width: `${Math.min(1, ratio) * 100}%` }} />
+    <div class={tone ? `prog prog-${tone}` : 'prog'} aria-hidden="true">
+      <i style={{ width: `${Math.min(1, ratio) * 100}%` }} />
     </div>
   );
 }
@@ -95,12 +93,14 @@ interface NumberFieldProps {
   onCommit: (value: number | undefined) => void;
   unit?: string;
   decimal?: boolean;
+  big?: boolean;
+  hideLabel?: boolean;
   min?: number;
   max?: number;
 }
 
 // Keeps the typed text while editing, so "81." isn't rewritten mid-entry.
-export function NumberField({ label, value, onCommit, unit, decimal, min = 0, max = 1_000_000 }: NumberFieldProps) {
+export function NumberField({ label, value, onCommit, unit, decimal, big, hideLabel, min = 0, max = 1_000_000 }: NumberFieldProps) {
   const [text, setText] = useState(value?.toString() ?? '');
   const [rejected, setRejected] = useState(false);
 
@@ -116,8 +116,8 @@ export function NumberField({ label, value, onCommit, unit, decimal, min = 0, ma
 
   return (
     <label class="field">
-      <span class="field-label">{label}</span>
-      <span class="field-entry">
+      <span class={hideLabel ? 'sr-only' : 'field-label'}>{label}</span>
+      <span class={big ? 'inp inp-big' : 'inp'}>
         <input
           class="num"
           type="text"
@@ -133,7 +133,7 @@ export function NumberField({ label, value, onCommit, unit, decimal, min = 0, ma
           }}
           onBlur={() => setRejected(!isValid(parse(text)))}
         />
-        {unit && <span class="field-unit num">{unit}</span>}
+        {unit && <span class="field-unit">{unit}</span>}
       </span>
       {rejected && <span class="field-error">Not saved. Check this number.</span>}
     </label>

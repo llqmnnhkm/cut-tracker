@@ -67,14 +67,14 @@ export function RestTimer({ end, seconds, onRestart, onClose }: Props) {
   return (
     <div class="timer" role="timer" aria-label="Rest timer">
       <div class="timer-count">
-        <span class="label">{left > 0 ? 'Rest' : 'Next set'}</span>
-        <span class="num timer-time">
+        <span class="timer-label">{left > 0 ? 'Rest' : 'Next set'}</span>
+        <span class="timer-time">
           {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}
         </span>
       </div>
       <div class="timer-actions">
         {CHOICES.map((s) => (
-          <button key={s} type="button" class={s === seconds ? 'chip is-on' : 'chip'} onClick={() => choose(s)}>
+          <button key={s} type="button" class={s === seconds ? 'chip chip-on' : 'chip'} onClick={() => choose(s)}>
             {s}
           </button>
         ))}

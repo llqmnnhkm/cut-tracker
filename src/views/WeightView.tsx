@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { Note, Tick } from '../components';
+import { Note } from '../components';
 import { addDays, daysBetween, localToday, shortDate } from '../dates';
 import {
   ABOVE_ANY_CHECKPOINT_NOTE,
@@ -48,7 +48,7 @@ function Chart({ points }: { points: WeightPoint[] }) {
 
   return (
     <figure class="chart">
-      <p class="num chart-readout" aria-live="polite">
+      <p class="chart-readout num" aria-live="polite">
         {active ? (
           <>
             <strong>{active.weight.toFixed(1)} kg</strong> <span class="muted">{shortDate(active.date)} · trend {active.trend.toFixed(1)}</span>
@@ -60,13 +60,13 @@ function Chart({ points }: { points: WeightPoint[] }) {
       <svg
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label="Morning weight and five-day trend against the checkpoints. The same values are in the table below."
+        aria-label="Morning weight and five-day trend against the checkpoints. The same values are in the tables below."
         onPointerDown={pick}
         onPointerMove={pick}
       >
         {yTicks.map((t) => (
           <g key={t}>
-            <line class="grid" x1={M.left} x2={W - M.right} y1={y(t)} y2={y(t)} />
+            <line class="grid-line" x1={M.left} x2={W - M.right} y1={y(t)} y2={y(t)} />
             <text class="axis" x={M.left - 6} y={y(t) + 4} text-anchor="end">{t}</text>
           </g>
         ))}
@@ -75,7 +75,7 @@ function Chart({ points }: { points: WeightPoint[] }) {
         ))}
         {active && <line class="crosshair" x1={x(active.date)} x2={x(active.date)} y1={M.top} y2={H - M.bottom} />}
         {CHECKPOINTS.map((c) => (
-          <rect key={c.date} class="checkpoint" x={x(c.date) - 4.5} y={y(c.target) - 4.5} width="9" height="9" />
+          <rect key={c.date} class="checkpoint" x={x(c.date) - 4.5} y={y(c.target) - 4.5} width="9" height="9" rx="2" />
         ))}
         {points.length > 1 && (
           <polyline class="trend" points={points.map((p) => `${x(p.date)},${y(p.trend)}`).join(' ')} />
@@ -87,7 +87,7 @@ function Chart({ points }: { points: WeightPoint[] }) {
       <figcaption class="legend">
         <span><svg viewBox="0 0 12 12" aria-hidden="true"><circle class="dot" cx="6" cy="6" r="4" /></svg> Logged</span>
         <span><svg viewBox="0 0 16 12" aria-hidden="true"><line class="trend" x1="1" x2="15" y1="6" y2="6" /></svg> 5-day trend</span>
-        <span><svg viewBox="0 0 12 12" aria-hidden="true"><rect class="checkpoint" x="1.5" y="1.5" width="9" height="9" /></svg> Checkpoint</span>
+        <span><svg viewBox="0 0 12 12" aria-hidden="true"><rect class="checkpoint" x="1.5" y="1.5" width="9" height="9" rx="2" /></svg> Checkpoint</span>
       </figcaption>
     </figure>
   );
@@ -104,29 +104,33 @@ export function WeightView({ store }: { store: Store }) {
       <header class="datebar">
         <div>
           <h1>Weight</h1>
-          <p class="num meta">82 → 78 kg by {shortDate(WEIGH_IN)}</p>
+          <p class="meta">82 → 78 kg by {shortDate(WEIGH_IN)}</p>
         </div>
       </header>
 
       <div class="stats">
-        <div>
-          <span class="label">Latest</span>
-          <span class="num stat">{latest ? latest.weight.toFixed(1) : '–'}</span>
+        <div class="stat" style={{ '--i': 0 }}>
+          <span class="stat-label">Latest</span>
+          <b>{latest ? latest.weight.toFixed(1) : '–'}{latest && <span class="unit">kg</span>}</b>
+          <small>{latest ? shortDate(latest.date) : 'Nothing logged yet'}</small>
         </div>
-        <div>
-          <span class="label">Trend</span>
-          <span class="num stat">{latest ? latest.trend.toFixed(1) : '–'}</span>
+        <div class="stat" style={{ '--i': 1 }}>
+          <span class="stat-label">Trend</span>
+          <b>{latest ? latest.trend.toFixed(1) : '–'}{latest && <span class="unit">kg</span>}</b>
+          <small>5-day average</small>
         </div>
       </div>
 
-      <Chart points={points} />
+      <section class="panel">
+        <Chart points={points} />
+      </section>
       <Note>{SWING_NOTE}</Note>
 
       {isAboveDecisionLimit(store) && today >= DECISION_DATE && today <= WEIGH_IN && <Note>{DECISION_NOTE}</Note>}
       {showRebound(today) && <Note>{REBOUND_NOTE}</Note>}
 
-      <section class="block">
-        <h2>Checkpoints</h2>
+      <section class="panel">
+        <h3>Checkpoints</h3>
         <table class="table">
           <thead>
             <tr><th scope="col">Date</th><th scope="col">Target</th><th scope="col">Logged</th></tr>
@@ -140,7 +144,8 @@ export function WeightView({ store }: { store: Store }) {
                   <td>{shortDate(c.date)}</td>
                   <td class="num">≤ {c.target.toFixed(1)}</td>
                   <td class="num">
-                    {w !== undefined ? w.toFixed(1) : '–'} {met && <Tick />}
+                    {w !== undefined ? w.toFixed(1) : '–'}
+                    {met && <span class="pill">Met</span>}
                   </td>
                 </tr>
               );
@@ -152,8 +157,8 @@ export function WeightView({ store }: { store: Store }) {
         )}
       </section>
 
-      <section class="block">
-        <h2>All entries</h2>
+      <section class="panel">
+        <h3>All entries</h3>
         <p class="muted-text">{WEIGH_NOTE}</p>
         {points.length === 0 ? (
           <p>Nothing yet. Add this morning's weight in the Log.</p>
