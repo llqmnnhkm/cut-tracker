@@ -1,30 +1,47 @@
 import { DateBar, Note, SafetyBanners, SetBox, fmt, type DateNav } from '../components';
 import { JOG_NOTE } from '../plan';
 import { dayPlan } from '../rules';
-import { updateDay, type Store } from '../store';
-import { buildChecklist, checkKeys, hasOpenRestBoxes, sessionLabel, type CheckItem } from '../workout';
+import type { Store } from '../store';
+import { setCheck } from '../checks';
+import { buildChecklist, sessionLabel, timerRun, type CheckItem } from '../workout';
 import { SessionCoin } from './TodayView';
 
 interface Props extends DateNav {
   store: Store;
   onSetDone: () => void;
   onSessionOver: () => void;
+  onStartTimer: (itemId: string) => void;
+  running: string | null;
 }
 
-export function WorkoutView({ store, date, today, setDate, onSetDone, onSessionOver }: Props) {
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+export function WorkoutView({ store, date, today, setDate, onSetDone, onSessionOver, onStartTimer, running }: Props) {
   const log = store.days[date];
   const day = dayPlan(store, date);
   const list = buildChecklist(day);
   const checks = log?.checks ?? {};
-  const allKeys = checkKeys(list);
 
   const toggle = (item: CheckItem, n: number, on: boolean) => {
-    const next = { ...checks, [`${item.id}:${n}`]: on };
-    const finished = allKeys.length > 0 && allKeys.every((k) => next[k]);
-    updateDay(date, (d) => ({ ...d, checks: next, workoutDone: finished || d.workoutDone }));
-    if (!on) return;
-    if (finished) onSessionOver();
-    else if (item.rest && hasOpenRestBoxes(list, next)) onSetDone();
+    const result = setCheck(date, item, n, on);
+    if (result === 'finished') onSessionOver();
+    else if (result === 'rest') onSetDone();
+  };
+
+  const timerButton = (item: CheckItem) => {
+    if (!item.timer) return null;
+    const run = timerRun(item, checks);
+    if (run.length === 0) return null;
+    const isRunning = running === item.id;
+    const seconds = run.slice(1).reduce((sum, p) => sum + p.seconds, 0);
+    return (
+      <button type="button" class={isRunning ? 'timerbtn timerbtn-on' : 'timerbtn'} disabled={isRunning} onClick={() => onStartTimer(item.id)}>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 5.5v13l10.5-6.5z" />
+        </svg>
+        {isRunning ? 'Running' : item.timer.once ? `Time a set · ${clock(seconds)}` : `Start timer · ${clock(seconds)}`}
+      </button>
+    );
   };
 
   return (
@@ -56,6 +73,7 @@ export function WorkoutView({ store, date, today, setDate, onSetDone, onSessionO
                     <div>
                       <span class="exercise-name">{item.name}</span>
                       <span class="exercise-detail num">{item.detail}</span>
+                      {timerButton(item)}
                     </div>
                     <div class="exercise-boxes">
                       {Array.from({ length: item.boxes }, (_, n) => (

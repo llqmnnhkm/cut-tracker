@@ -1,30 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { updateSettings } from './store';
+import { beep, holdScreen } from './sound';
 
-let audio: AudioContext | null = null;
-
-// iOS only allows sound from a context first started during a tap.
-export function unlockSound() {
-  try {
-    audio ??= new AudioContext();
-    void audio.resume();
-  } catch {
-    audio = null;
-  }
-}
-
-function beep() {
-  if (!audio) return;
-  [0, 0.25].forEach((delay) => {
-    const osc = audio!.createOscillator();
-    const gain = audio!.createGain();
-    osc.frequency.value = 880;
-    gain.gain.value = 0.25;
-    osc.connect(gain).connect(audio!.destination);
-    osc.start(audio!.currentTime + delay);
-    osc.stop(audio!.currentTime + delay + 0.15);
-  });
-}
+export { unlockSound } from './sound';
 
 const CHOICES = [60, 75, 90];
 
@@ -45,11 +23,7 @@ export function RestTimer({ end, seconds, onRestart, onClose }: Props) {
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    let lock: WakeLockSentinel | undefined;
-    navigator.wakeLock?.request('screen').then((l) => (lock = l)).catch(() => {});
-    return () => void lock?.release();
-  }, []);
+  useEffect(holdScreen, []);
 
   useEffect(() => {
     if (left > 0) return;

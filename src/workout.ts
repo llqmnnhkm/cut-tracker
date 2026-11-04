@@ -3,6 +3,20 @@
 import { FINISHER_NOTE, INTERVALS_NOTE, PROGRESSION_NOTE, SESSION_NAMES, STRENGTH_NOTE, WORKOUTS } from './plan';
 import type { DayPlan } from './rules';
 
+export interface Phase {
+  label: string;
+  seconds: number;
+  work?: boolean; // shown in red, the effort part
+  box?: number; // the box this phase ticks when it ends
+  round?: string;
+}
+
+export interface TimerSpec {
+  box: Phase[]; // one box's worth of timing
+  gap?: Phase; // between boxes, never after the last
+  once?: boolean; // times one box per start, for sets that already use the rest timer
+}
+
 export interface CheckItem {
   id: string;
   name: string;
@@ -10,6 +24,7 @@ export interface CheckItem {
   boxes: number;
   easier?: string;
   rest?: boolean; // ticking a box starts the rest timer
+  timer?: TimerSpec;
 }
 
 export interface CheckGroup {
@@ -25,12 +40,41 @@ export interface Checklist {
   footnote?: string;
 }
 
-const warmUp: CheckItem = { id: 'warm-up', name: 'Warm up', detail: '5 min', boxes: 1 };
+const minutes = (label: string, min: number): TimerSpec => ({ box: [{ label, seconds: min * 60, work: true }] });
+
+// Timers for the exercises measured in time rather than reps.
+const SET_TIMERS: Record<string, TimerSpec> = {
+  plank: { box: [{ label: 'Plank', seconds: 40, work: true }], once: true },
+  'side-plank': {
+    box: [
+      { label: 'Side plank, left', seconds: 30, work: true },
+      { label: 'Side plank, right', seconds: 30, work: true },
+    ],
+    once: true,
+  },
+};
+
+const warmUp: CheckItem = { id: 'warm-up', name: 'Warm up', detail: '5 min', boxes: 1, timer: minutes('Warm up', 5) };
 
 const finisher: CheckGroup = {
   title: 'Finisher',
   note: FINISHER_NOTE,
-  items: [{ id: 'finisher', name: 'Rounds', detail: '5 rounds', boxes: 5 }],
+  items: [
+    {
+      id: 'finisher',
+      name: 'Rounds',
+      detail: '5 rounds',
+      boxes: 5,
+      timer: {
+        box: [
+          { label: 'Mountain climbers', seconds: 30, work: true },
+          { label: 'Bodyweight squats', seconds: 30, work: true },
+          { label: 'Jumping jacks', seconds: 30, work: true },
+        ],
+        gap: { label: 'Rest', seconds: 30 },
+      },
+    },
+  ],
 };
 
 export function sessionLabel(day: DayPlan): string {
@@ -57,6 +101,7 @@ export function buildChecklist(day: DayPlan): Checklist {
             boxes: e.sets,
             easier: e.easier,
             rest: true,
+            timer: SET_TIMERS[e.id],
           })),
         ],
       };
@@ -94,8 +139,19 @@ export function buildChecklist(day: DayPlan): Checklist {
             note: INTERVALS_NOTE,
             items: [
               warmUp,
-              { id: 'rounds', name: 'Rounds', detail: '10 rounds', boxes: 10 },
-              { id: 'cool-down', name: 'Cool down', detail: '5 min', boxes: 1 },
+              {
+                id: 'rounds',
+                name: 'Rounds',
+                detail: '10 rounds',
+                boxes: 10,
+                timer: {
+                  box: [
+                    { label: 'Hard', seconds: 30, work: true },
+                    { label: 'Easy', seconds: 90 },
+                  ],
+                },
+              },
+              { id: 'cool-down', name: 'Cool down', detail: '5 min', boxes: 1, timer: minutes('Cool down', 5) },
             ],
           },
         ],
@@ -108,8 +164,8 @@ export function buildChecklist(day: DayPlan): Checklist {
             title: 'Easy cardio',
             note: 'The walk counts towards steps.',
             items: [
-              { id: 'walk', name: 'Brisk walk', detail: '40 min', boxes: 1 },
-              { id: 'stretch', name: 'Stretching', detail: '10 min', boxes: 1 },
+              { id: 'walk', name: 'Brisk walk', detail: '40 min', boxes: 1, timer: minutes('Brisk walk', 40) },
+              { id: 'stretch', name: 'Stretching', detail: '10 min', boxes: 1, timer: minutes('Stretching', 10) },
             ],
           },
         ],
@@ -131,4 +187,25 @@ export function hasOpenRestBoxes(list: Checklist, checks: Record<string, boolean
   return list.groups.some((g) =>
     g.items.some((i) => i.rest && Array.from({ length: i.boxes }).some((_, n) => !checks[`${i.id}:${n}`])),
   );
+}
+
+export const openBoxes = (item: CheckItem, checks: Record<string, boolean>) =>
+  Array.from({ length: item.boxes }, (_, n) => n).filter((n) => !checks[`${item.id}:${n}`]);
+
+export const GET_READY: Phase = { label: 'Get ready', seconds: 5 };
+
+// The phases one press of Start runs: the boxes still open, each ending in a tick.
+export function timerRun(item: CheckItem, checks: Record<string, boolean>): Phase[] {
+  const spec = item.timer;
+  if (!spec) return [];
+  const open = openBoxes(item, checks);
+  const count = spec.once ? Math.min(1, open.length) : open.length;
+  if (count === 0) return [];
+  const phases: Phase[] = [GET_READY];
+  for (let i = 0; i < count; i++) {
+    const round = item.boxes > 1 ? `${open[i] + 1} of ${item.boxes}` : undefined;
+    spec.box.forEach((p, j) => phases.push({ ...p, round, box: j === spec.box.length - 1 ? open[i] : undefined }));
+    if (spec.gap && i < count - 1) phases.push({ ...spec.gap, round: `${open[i + 1] + 1} of ${item.boxes} next` });
+  }
+  return phases;
 }

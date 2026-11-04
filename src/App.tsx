@@ -3,6 +3,9 @@ import { didSaveFail, updateSettings, useStore } from './store';
 import { daysBetween, localToday } from './dates';
 import { CUT_DAYS, PLAN_START, WEIGH_IN } from './plan';
 import { RestTimer, unlockSound } from './RestTimer';
+import { ExerciseTimer, type ExerciseRun } from './ExerciseTimer';
+import { findItem, setCheck } from './checks';
+import { timerRun } from './workout';
 import { isStandalone } from './components';
 import { applyTheme, effectiveTheme } from './theme';
 import { TodayView } from './views/TodayView';
@@ -79,6 +82,7 @@ export function App() {
   const [today, setToday] = useState(clampedToday);
   const [date, setDate] = useState(today);
   const [restEnd, setRestEnd] = useState<number | null>(null);
+  const [run, setRun] = useState<ExerciseRun | null>(null);
   const [, redraw] = useState(0);
   const followToday = useRef(true);
   followToday.current = date === today;
@@ -112,6 +116,28 @@ export function App() {
   const startRest = (seconds = store.settings.restSeconds) => {
     unlockSound();
     setRestEnd(Date.now() + seconds * 1000);
+  };
+
+  const startExercise = (itemId: string) => {
+    const item = findItem(date, itemId);
+    if (!item) return;
+    const phases = timerRun(item, store.days[date]?.checks ?? {});
+    if (phases.length === 0) return;
+    unlockSound();
+    setRestEnd(null);
+    const start = Date.now();
+    setRun({ id: start, date, itemId, phases, start, pausedAt: null });
+  };
+
+  const boxFromTimer = (n: number) => {
+    if (!run) return;
+    const item = findItem(run.date, run.itemId);
+    if (!item) return;
+    const result = setCheck(run.date, item, n, true);
+    if (result === 'rest' && item.timer?.once) {
+      setRun(null);
+      startRest();
+    }
   };
 
   const shown = effectiveTheme(store.settings.theme);
@@ -151,13 +177,31 @@ export function App() {
           {tab === 'today' && <TodayView store={store} {...nav} />}
           {tab === 'log' && <LogView store={store} {...nav} />}
           {tab === 'workout' && (
-            <WorkoutView store={store} {...nav} onSetDone={() => startRest()} onSessionOver={() => setRestEnd(null)} />
+            <WorkoutView
+              store={store}
+              {...nav}
+              running={run?.date === date ? run.itemId : null}
+              onSetDone={() => startRest()}
+              onSessionOver={() => setRestEnd(null)}
+              onStartTimer={startExercise}
+            />
           )}
           {tab === 'weight' && <WeightView store={store} />}
           {tab === 'settings' && <SettingsView store={store} />}
         </div>
       </main>
-      {restEnd !== null && (
+      {run !== null && (
+        <ExerciseTimer
+          key={run.id}
+          run={run}
+          onBox={boxFromTimer}
+          onPause={() => setRun((r) => r && { ...r, pausedAt: Date.now() })}
+          onResume={() => setRun((r) => r && r.pausedAt !== null ? { ...r, start: r.start + Date.now() - r.pausedAt, pausedAt: null } : r)}
+          onStop={() => setRun(null)}
+          onFinish={() => setRun(null)}
+        />
+      )}
+      {run === null && restEnd !== null && (
         <RestTimer
           key={restEnd}
           end={restEnd}
