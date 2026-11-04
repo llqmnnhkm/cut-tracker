@@ -147,7 +147,7 @@ export function buildChecklist(day: DayPlan): Checklist {
                 timer: {
                   box: [
                     { label: 'Hard', seconds: 30, work: true },
-                    { label: 'Easy', seconds: 90 },
+                    { label: 'Rest', seconds: 60 },
                   ],
                 },
               },

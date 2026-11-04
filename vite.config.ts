@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     preact(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['apple-touch-icon.png'],
       workbox: { globPatterns: ['**/*.{js,css,html,woff2,png}'] },
       manifest: {

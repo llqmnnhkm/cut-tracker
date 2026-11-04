@@ -6,6 +6,7 @@ import { RestTimer, unlockSound } from './RestTimer';
 import { ExerciseTimer, type ExerciseRun } from './ExerciseTimer';
 import { findItem, setCheck } from './checks';
 import { timerRun } from './workout';
+import { restartForUpdate, useUpdateReady } from './update';
 import { isStandalone } from './components';
 import { applyTheme, effectiveTheme } from './theme';
 import { TodayView } from './views/TodayView';
@@ -78,6 +79,7 @@ const dayPill = (today: string) =>
 
 export function App() {
   const store = useStore();
+  const updateReady = useUpdateReady();
   const [tab, setTab] = useState<TabId>(currentTab);
   const [today, setToday] = useState(clampedToday);
   const [date, setDate] = useState(today);
@@ -166,6 +168,11 @@ export function App() {
           <b>Add to Home Screen first.</b> Tap Share, then Add to Home Screen. Logs made in Safari stay in Safari, and iOS
           can clear them after 7 days without use.
         </div>
+      )}
+      {updateReady && run === null && (
+        <button type="button" class="sample update" onClick={restartForUpdate}>
+          <b>Update ready.</b> Tap to restart the app. Your logs stay.
+        </button>
       )}
       {didSaveFail() && (
         <div class="sample">

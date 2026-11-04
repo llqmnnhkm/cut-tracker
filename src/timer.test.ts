@@ -9,12 +9,12 @@ const item = (date: string, id: string) => items(date).find((i) => i.id === id) 
 const work = (phases: { seconds: number }[]) => phases.slice(1).reduce((s, p) => s + p.seconds, 0);
 
 describe('exercise timer runs', () => {
-  it('runs 10 interval rounds of 30 s hard and 90 s easy, ticking each round', () => {
+  it('runs 10 interval rounds of 30 s hard and 60 s rest, ticking each round', () => {
     const run = timerRun(item('2026-11-04', 'rounds'), {});
     expect(run[0].label).toBe('Get ready');
-    expect(run.slice(1).map((p) => p.label)).toEqual(Array(10).fill(['Hard', 'Easy']).flat());
+    expect(run.slice(1).map((p) => p.label)).toEqual(Array(10).fill(['Hard', 'Rest']).flat());
     expect(run.filter((p) => p.box !== undefined).map((p) => p.box)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    expect(work(run)).toBe(20 * 60);
+    expect(work(run)).toBe(15 * 60);
   });
 
   it('only runs the rounds still open', () => {

@@ -121,7 +121,7 @@ export const WORKOUTS: Record<'A' | 'B' | 'C', Exercise[]> = {
 
 export const STRENGTH_NOTE = 'Rest 60–90 seconds between sets. Stop each set with 1–2 good reps left.';
 export const FINISHER_NOTE = 'Mountain climbers, bodyweight squats and jumping jacks, 30 seconds each, then 30 seconds of rest.';
-export const INTERVALS_NOTE = '30 seconds hard, 90 seconds easy. High knees, jumping jacks, mountain climbers or outdoor sprints.';
+export const INTERVALS_NOTE = '30 seconds hard, 60 seconds rest. High knees, jumping jacks, mountain climbers or outdoor sprints.';
 export const PROGRESSION_NOTE = 'Each week, add 1–2 reps per set or lower more slowly.';
 export const JOG_NOTE =
   'Replace one walk with a 20–30 minute jog at 7:00–8:30 min/km, slow enough to speak in full sentences. Jogging steps count. New to jogging? Alternate 2 minutes jogging and 2 minutes walking.';
