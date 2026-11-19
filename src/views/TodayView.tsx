@@ -1,6 +1,8 @@
 import type { ComponentChildren } from 'preact';
 import { Bar, CheckRow, DateBar, Note, SafetyBanners, Tick, fmt, litres, type DateNav } from '../components';
-import { shortDate } from '../dates';
+import { shortDate, weekdayName } from '../dates';
+import { ActivityCard, WeekStrip } from '../ActivityCard';
+import { removeActivity } from '../store';
 import {
   ABOVE_CHECKPOINT_NOTE,
   CHECKPOINTS,
@@ -16,6 +18,7 @@ import {
   WATER_WEIGH_IN_NOTE,
   WEIGH_IN,
   WEIGH_IN_FOCUS,
+  PLAN_START,
   type FlagId,
   type SessionId,
 } from '../plan';
@@ -101,16 +104,26 @@ export function TodayView({ store, date, today, setDate }: DateNav & { store: St
       <DateBar date={date} today={today} setDate={setDate} />
       <SafetyBanners day={day} />
 
-      <a class="tile" href="#workout">
-        <SessionCoin session={day.session} done={log?.workoutDone} />
-        <span class="tile-text">
-          <span class="label">Session</span>
-          <span class="session-name">{sessionLabel(day)}</span>
-          <span class="tile-sub">{log?.workoutDone ? 'Done' : 'Open checklist'}</span>
+      <a class="tile feed" href="#workout">
+        <span class="feed-head">
+          <SessionCoin session={day.session} done={log?.workoutDone} />
+          <span class="feed-who">
+            <b>{date === today ? "Today's session" : `${weekdayName(date)}'s session`}</b>
+            <small>{shortDate(date)}</small>
+          </span>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
         </span>
-        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+        <span class="session-name">{sessionLabel(day)}</span>
+        <span class={log?.workoutDone ? 'tile-sub is-done' : 'tile-sub'}>{log?.workoutDone ? 'Completed' : 'Open checklist'}</span>
       </a>
 
+      {(log?.activities ?? []).map((a) => (
+        <ActivityCard key={a.id} date={date} activity={a} onRemove={() => confirm('Delete this activity?') && removeActivity(date, a.id)} />
+      ))}
+
+      <WeekStrip store={store} date={date} setDate={setDate} minDate={PLAN_START} />
+
+      <h2 class="section-title">{date === today ? "Today's stats" : 'Stats'}</h2>
       <section class="ledger" aria-label="Today's progress">
         <div class="stats">
           <Stat

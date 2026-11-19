@@ -14,17 +14,30 @@ import { LogView } from './views/LogView';
 import { WorkoutView } from './views/WorkoutView';
 import { WeightView } from './views/WeightView';
 import { SettingsView } from './views/SettingsView';
+import { RecordView } from './views/RecordView';
+import { movingSeconds, useRecording, type Recording } from './recorder';
+import { ACTIVITY_NAMES, clock, km } from './activity';
 
 const TABS = [
   {
     id: 'today',
-    label: 'Today',
-    icon: <path d="M4 6h16v15H4zM4 10.5h16M8.5 3v4M15.5 3v4" />,
+    label: 'Home',
+    icon: <path d="M3.5 11 12 4l8.5 7M5.5 9.5V20h5v-5.5h3V20h5V9.5" />,
   },
   {
     id: 'log',
     label: 'Log',
     icon: <path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" />,
+  },
+  {
+    id: 'record',
+    label: 'Record',
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <circle cx="12" cy="12" r="3.5" class="fill" />
+      </>
+    ),
   },
   {
     id: 'workout',
@@ -33,7 +46,7 @@ const TABS = [
   },
   {
     id: 'weight',
-    label: 'Weight',
+    label: 'Progress',
     icon: <path d="M3 3v18h18M7 9l4 3.5 3-2 6 5.5" />,
   },
   {
@@ -64,6 +77,27 @@ const MOON = (
   </svg>
 );
 
+// Shows a running walk or run on every other tab, like a live activity.
+function RecBar({ rec }: { rec: Recording }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const paused = rec.legStart === null;
+  return (
+    <a class="recbar" href="#record">
+      <i class={paused ? 'recdot recdot-paused' : 'recdot'} />
+      <span>
+        {ACTIVITY_NAMES[rec.type]} {paused ? 'paused' : 'recording'}
+      </span>
+      <b class="num">
+        {clock(movingSeconds(rec))} · {km(rec.track.meters)} km
+      </b>
+    </a>
+  );
+}
+
 const currentTab = (): TabId => {
   const hash = location.hash.slice(1);
   return TABS.find((t) => t.id === hash)?.id ?? 'today';
@@ -80,6 +114,7 @@ const dayPill = (today: string) =>
 export function App() {
   const store = useStore();
   const updateReady = useUpdateReady();
+  const rec = useRecording();
   const [tab, setTab] = useState<TabId>(currentTab);
   const [today, setToday] = useState(clampedToday);
   const [date, setDate] = useState(today);
@@ -154,15 +189,17 @@ export function App() {
   return (
     <div class="app">
       <header class="top">
-        <div class="brand">Cut Tracker</div>
+        <div class="brand">{TABS.find((t) => t.id === tab)!.label}</div>
         <div class="top-right">
+          <span class="role">{dayPill(today)}</span>
           <button type="button" class="themebtn" aria-label="Switch light or dark" onClick={switchTheme}>
             {shown === 'dark' ? SUN : MOON}
           </button>
-          <span class="role">{dayPill(today)}</span>
+          <a href="#settings" class={tab === 'settings' ? 'themebtn is-on' : 'themebtn'} aria-label="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true">{TABS.find((t) => t.id === 'settings')!.icon}</svg>
+          </a>
         </div>
       </header>
-      <div class="checker" aria-hidden="true" />
       {!isStandalone() && matchMedia('(pointer: coarse)').matches && (
         <div class="sample">
           <b>Add to Home Screen first.</b> Tap Share, then Add to Home Screen. Logs made in Safari stay in Safari, and iOS
@@ -193,6 +230,7 @@ export function App() {
               onStartTimer={startExercise}
             />
           )}
+          {tab === 'record' && <RecordView store={store} rec={rec} />}
           {tab === 'weight' && <WeightView store={store} />}
           {tab === 'settings' && <SettingsView store={store} />}
         </div>
@@ -217,9 +255,10 @@ export function App() {
           onClose={() => setRestEnd(null)}
         />
       )}
+      {rec && tab !== 'record' && <RecBar rec={rec} />}
       <nav class="tabs" aria-label="Sections">
-        {TABS.map((t) => (
-          <a key={t.id} href={`#${t.id}`} class={t.id === tab ? 'tab is-on' : 'tab'} aria-current={t.id === tab ? 'page' : undefined}>
+        {TABS.filter((t) => t.id !== 'settings').map((t) => (
+          <a key={t.id} href={`#${t.id}`} class={[t.id === 'record' ? 'tab tab-record' : 'tab', t.id === tab && 'is-on'].filter(Boolean).join(' ')} aria-current={t.id === tab ? 'page' : undefined}>
             <svg viewBox="0 0 24 24" aria-hidden="true">{t.icon}</svg>
             <span>{t.label}</span>
           </a>

@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { FlagId, Macros, PhaseId } from './plan';
 import type { Theme } from './theme';
+import type { Activity } from './activity';
 
 export interface Meal {
   id: string;
@@ -23,6 +24,7 @@ export interface DayLog {
   checks?: Record<string, boolean>;
   workoutDone?: boolean;
   flags?: Partial<Record<FlagId, boolean>>;
+  activities?: Activity[];
 }
 
 export interface Settings {
@@ -101,4 +103,19 @@ export function useStore(): Store {
     return () => void listeners.delete(listener);
   }, []);
   return current;
+}
+
+export function addActivity(date: string, activity: Activity) {
+  updateDay(date, (d) => ({ ...d, activities: [...(d.activities ?? []), activity].sort((a, b) => a.start - b.start) }));
+}
+
+export function removeActivity(date: string, id: string) {
+  updateDay(date, (d) => ({ ...d, activities: (d.activities ?? []).filter((a) => a.id !== id) }));
+}
+
+// Every walk and run with its day, newest first.
+export function allActivities(store: Store) {
+  return Object.entries(store.days)
+    .flatMap(([date, day]) => (day.activities ?? []).map((activity) => ({ date, activity })))
+    .sort((a, b) => b.activity.start - a.activity.start);
 }

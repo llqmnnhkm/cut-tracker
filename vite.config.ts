@@ -15,8 +15,8 @@ export default defineConfig({
         short_name: 'Cut',
         description: 'A daily logbook for a weight cut and what comes after.',
         display: 'standalone',
-        background_color: '#e1251b',
-        theme_color: '#e1251b',
+        background_color: '#fc4c02',
+        theme_color: '#ffffff',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },

@@ -12,14 +12,16 @@ A personal logbook for a weight cut from 82 kg to 78 kg (3–13 Nov 2026) and th
 
 ## Where the data lives
 
-Logs stay in the browser storage on the phone. There is no server, account, or analytics, and nothing is committed to this repo. Use **Settings → Export backup** to keep a copy, because a lost phone means lost logs otherwise.
+Logs, walks and runs (including routes) stay in the browser storage on the phone. There is no server, account, or analytics, and nothing is committed to this repo. Use **Settings → Export backup** to keep a copy, because a lost phone means lost logs otherwise.
 
 ## What's in it
 
-- **Today:** the day's session, step goal, nutrition targets, and progress.
+- **Home:** a feed of the day's session and any walks or runs, this week's activity strip, and the day's stats.
+- **Record:** track a walk or run with GPS (time, distance, average and current pace, route), pause and finish, or add one by hand for a treadmill. Keep the app open on screen while recording; iPhone stops GPS for web apps when the screen locks.
 - **Log:** morning weight, steps, water, meals (with kcal ranges for estimates), and workout done.
 - **Workout:** the day's exercises as a checklist, with a rest timer.
-- **Weight:** logged weight and 5-day trend against the checkpoints.
+- **Progress:** logged weight and 5-day trend against the checkpoints.
+- **Settings** (gear, top right): backup, rest day, and nutrition targets.
 - **Check-in:** pain, fatigue, and dizziness rules that adjust the day when ticked.
 
 ## Safety rules

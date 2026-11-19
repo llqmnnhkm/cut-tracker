@@ -77,6 +77,19 @@ function Chart({ points }: { points: WeightPoint[] }) {
         {CHECKPOINTS.map((c) => (
           <rect key={c.date} class="checkpoint" x={x(c.date) - 4.5} y={y(c.target) - 4.5} width="9" height="9" rx="2" />
         ))}
+        <defs>
+          <linearGradient id="trend-fill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" class="fill-top" />
+            <stop offset="1" class="fill-bottom" />
+          </linearGradient>
+        </defs>
+        {points.length > 1 && (
+          <polygon
+            class="trend-area"
+            fill="url(#trend-fill)"
+            points={`${x(points[0].date)},${H - M.bottom} ${points.map((p) => `${x(p.date)},${y(p.trend)}`).join(' ')} ${x(points[points.length - 1].date)},${H - M.bottom}`}
+          />
+        )}
         {points.length > 1 && (
           <polyline class="trend" points={points.map((p) => `${x(p.date)},${y(p.trend)}`).join(' ')} />
         )}
