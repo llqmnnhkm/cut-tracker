@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
-import { activityTitle, clock, km, pace, replaySlice, routeXY, toPoints, type Activity, type ActivityType, type LatLng } from './activity';
+import { activityTitle, clock, estimateSteps, strideFromWalk, km, pace, replaySlice, routeXY, toPoints, type Activity, type ActivityType, type LatLng } from './activity';
 import { addDays, shortDate, weekdayIndex } from './dates';
-import type { Store } from './store';
+import { getStore, updateSettings, type Store } from './store';
+import { fmt } from './components';
 
 export const ACTIVITY_ICONS: Record<ActivityType, preact.JSX.Element> = {
   walk: (
@@ -123,6 +124,61 @@ interface CardProps {
   onRemove?: () => void;
 }
 
+function StepsLine({ a }: { a: Activity }) {
+  const { heightCm, strideCm } = getStore().settings;
+  const steps = estimateSteps(a, heightCm, strideCm);
+  const [open, setOpen] = useState(false);
+  const [counted, setCounted] = useState('');
+  const [error, setError] = useState('');
+  const canCalibrate = a.type === 'walk' && a.meters >= 300;
+
+  if (steps === null && !canCalibrate) {
+    return a.type === 'run' ? <p class="steps-line muted-text">Add your height in Settings to estimate steps.</p> : null;
+  }
+
+  const save = (e: Event) => {
+    e.preventDefault();
+    const stride = strideFromWalk(a.meters, Number(counted.replace(/[,\s]/g, '')));
+    if (!stride) return setError('That gives an unlikely step length. Check the number from Health.');
+    updateSettings({ strideCm: stride });
+    setOpen(false);
+    setCounted('');
+    setError('');
+  };
+
+  return (
+    <div class="steps-line">
+      <p>
+        {steps !== null ? (
+          <>
+            <b class="num">≈ {fmt(steps)}</b> steps <span class="muted">{a.type === 'walk' && strideCm ? '(your measured step)' : '(estimate)'}</span>
+          </>
+        ) : (
+          <span class="muted">Add your height in Settings, or measure your step with this walk.</span>
+        )}
+        {canCalibrate && !open && (
+          <button type="button" class="textlink" onClick={() => setOpen(true)}>
+            Measure my step
+          </button>
+        )}
+      </p>
+      {open && (
+        <form class="calibrate" onSubmit={save}>
+          <p class="muted-text">In the iPhone Health app, open Steps, find this walk's time, and enter how many steps it counted.</p>
+          <div class="calibrate-row">
+            <span class="inp">
+              <input class="num" inputmode="numeric" autocomplete="off" aria-label="Steps counted by iPhone" value={counted} onInput={(e) => setCounted(e.currentTarget.value)} />
+              <span class="field-unit">steps</span>
+            </span>
+            <button class="btn" type="submit">Save</button>
+          </div>
+          {error && <p class="field-error">{error}</p>}
+        </form>
+      )}
+    </div>
+  );
+}
+
 export function ActivityCard({ date, activity: a, onRemove }: CardProps) {
   return (
     <article class="feed">
@@ -148,6 +204,7 @@ export function ActivityCard({ date, activity: a, onRemove }: CardProps) {
           { label: 'Time', value: clock(a.seconds) },
         ]}
       />
+      <StepsLine a={a} />
       {a.route && <Route route={a.route} activity={a} />}
     </article>
   );

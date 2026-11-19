@@ -2,6 +2,7 @@ import { useRef, useState } from 'preact/hooks';
 import { NumberField } from '../components';
 import { WEEKDAY_NAMES, localToday, shortDate } from '../dates';
 import { PHASES, type Macros, type PhaseId } from '../plan';
+import { STRIDE_FROM_HEIGHT } from '../activity';
 import { parseStore, replaceStore, updateSettings, type Store } from '../store';
 
 const FIELDS: { key: keyof Macros; label: string; unit: string }[] = [
@@ -85,6 +86,27 @@ export function SettingsView({ store }: { store: Store }) {
           }}
         />
         {message && <p class="muted-text" role="status">{message}</p>}
+      </section>
+
+      <section class="panel">
+        <h3>Steps estimate</h3>
+        <p class="muted-text">Walks and runs show an estimate of your steps. Your height sets a starting step length; measuring a real walk makes it accurate.</p>
+        <div class="grid-2">
+          <NumberField label="Height" unit="cm" min={100} max={230} value={settings.heightCm} onCommit={(heightCm) => updateSettings({ heightCm })} />
+          <NumberField label="Walking step" unit="cm" min={40} max={110} value={settings.strideCm} onCommit={(strideCm) => updateSettings({ strideCm })} />
+        </div>
+        <p class="muted-text">
+          {settings.strideCm
+            ? 'Using your measured step for walks.'
+            : settings.heightCm
+              ? `Using about ${Math.round(settings.heightCm * STRIDE_FROM_HEIGHT)} cm from your height. Tap "Measure my step" on a walk of 300 m or more to measure it.`
+              : 'Enter your height to start.'}
+        </p>
+        {settings.strideCm && (
+          <button class="btn btn-quiet" type="button" onClick={() => updateSettings({ strideCm: undefined })}>
+            Clear measured step
+          </button>
+        )}
       </section>
 
       <section class="panel">

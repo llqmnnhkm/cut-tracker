@@ -142,3 +142,32 @@ export function thinRoute(route: LatLng[], minGap = 8): LatLng[] {
   out.push(route[route.length - 1]);
   return out;
 }
+
+// Step estimates. Walking uses a step length of about 41% of height unless one has been
+// measured; running uses a cadence that rises with speed. Both are estimates only.
+export const STRIDE_FROM_HEIGHT = 0.414;
+
+export function walkStepCm(heightCm?: number, strideCm?: number): number | null {
+  if (strideCm) return strideCm;
+  if (heightCm) return heightCm * STRIDE_FROM_HEIGHT;
+  return null;
+}
+
+export function estimateSteps(a: Pick<Activity, 'type' | 'meters' | 'seconds'>, heightCm?: number, strideCm?: number): number | null {
+  if (a.meters <= 0 || a.seconds <= 0) return null;
+  if (a.type === 'walk') {
+    const step = walkStepCm(heightCm, strideCm);
+    return step ? Math.round(a.meters / (step / 100)) : null;
+  }
+  if (!heightCm) return null;
+  const speed = a.meters / a.seconds;
+  const cadence = Math.min(190, Math.max(150, 140 + 10 * speed)) * Math.sqrt(170 / heightCm);
+  return Math.round((cadence * a.seconds) / 60);
+}
+
+// Step length from a walk and the steps the phone counted for it, or null if it looks wrong.
+export function strideFromWalk(meters: number, steps: number): number | null {
+  if (meters < 300 || steps <= 0) return null;
+  const cm = (meters / steps) * 100;
+  return cm >= 40 && cm <= 110 ? Math.round(cm) : null;
+}

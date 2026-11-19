@@ -15,6 +15,8 @@ import { WorkoutView } from './views/WorkoutView';
 import { WeightView } from './views/WeightView';
 import { SettingsView } from './views/SettingsView';
 import { RecordView } from './views/RecordView';
+import { EmomRunner } from './EmomPanel';
+import { useEmom } from './emom';
 import { movingSeconds, useRecording, type Recording } from './recorder';
 import { ACTIVITY_NAMES, clock, km } from './activity';
 
@@ -115,6 +117,7 @@ export function App() {
   const store = useStore();
   const updateReady = useUpdateReady();
   const rec = useRecording();
+  const emom = useEmom();
   const [tab, setTab] = useState<TabId>(currentTab);
   const [today, setToday] = useState(clampedToday);
   const [date, setDate] = useState(today);
@@ -255,6 +258,7 @@ export function App() {
           onClose={() => setRestEnd(null)}
         />
       )}
+      {emom && <EmomRunner run={emom} showBar={tab !== 'workout'} />}
       {rec && tab !== 'record' && <RecBar rec={rec} />}
       <nav class="tabs" aria-label="Sections">
         {TABS.filter((t) => t.id !== 'settings').map((t) => (

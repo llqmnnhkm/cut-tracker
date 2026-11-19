@@ -529,6 +529,47 @@ h1 {
   stroke-linejoin: round;
 }
 
+.steps-line {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.steps-line > p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+
+.steps-line b {
+  font-size: 16px;
+}
+
+.steps-line .muted {
+  color: var(--muted);
+}
+
+.steps-line .textlink {
+  min-height: 32px;
+  margin-left: auto;
+  padding: 0;
+}
+
+.calibrate {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: 10px;
+}
+
+.calibrate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
 /* Route maps */
 
 .route-wrap {
@@ -1883,4 +1924,212 @@ h1 {
 
 .update b {
   color: inherit;
+}
+
+/* Every X minutes */
+
+.emom {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 22px 16px 18px;
+  overflow: hidden;
+  background: var(--surface);
+  text-align: center;
+}
+
+.emom-go {
+  background: var(--orange);
+  color: var(--on-orange);
+}
+
+.emom-bar {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--line);
+}
+
+.emom-go .emom-bar {
+  background: rgb(255 255 255 / 0.25);
+}
+
+.emom-bar i {
+  display: block;
+  height: 100%;
+  background: var(--orange);
+  transition: width 0.4s linear;
+}
+
+.emom-go .emom-bar i {
+  background: #ffffff;
+}
+
+.emom-round {
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.emom-big {
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.emom-big span {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.emom-label {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.emom-time {
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.emom-done {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 180px;
+  min-height: 60px;
+  margin-top: 4px;
+  background: #ffffff;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+  color: var(--orange);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.emom-done .tick {
+  width: 22px;
+  height: 22px;
+}
+
+.emom-dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-width: 340px;
+  margin-top: 6px;
+}
+
+.emom-dot {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.emom-go .emom-dot {
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.4);
+  color: rgb(255 255 255 / 0.8);
+}
+
+.emom-dot.is-done {
+  background: var(--orange);
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.emom-go .emom-dot.is-done {
+  background: #ffffff;
+  color: var(--orange);
+}
+
+.emom-dot.is-missed {
+  box-shadow: inset 0 0 0 2px var(--bad);
+  color: var(--bad);
+}
+
+.emom-dot.is-now {
+  box-shadow: inset 0 0 0 3px currentColor;
+}
+
+.emom-dot .tick {
+  width: 16px;
+  height: 16px;
+}
+
+.emom-dot:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.emom-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+  margin-top: 6px;
+}
+
+.emom-actions .btn {
+  flex: 1;
+}
+
+.emom-go .btn {
+  background: rgb(255 255 255 / 0.18);
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.emom-discard {
+  color: var(--bad);
+}
+
+.emom-tip {
+  max-width: 320px;
+  font-size: 13px;
+}
+
+.emom-go .emom-tip {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.emom-logs li + li {
+  border-top: 1px solid var(--line);
+}
+
+.emom-log {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.coin-sm.is-full {
+  background: var(--orange);
+  color: #ffffff;
+}
+
+@media (min-width: 660px) {
+  .wrap > .emom {
+    border-radius: 12px;
+  }
 }

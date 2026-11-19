@@ -5,6 +5,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { FlagId, Macros, PhaseId } from './plan';
 import type { Theme } from './theme';
 import type { Activity } from './activity';
+import type { EmomLog, EmomSetup } from './emom';
 
 export interface Meal {
   id: string;
@@ -25,6 +26,7 @@ export interface DayLog {
   workoutDone?: boolean;
   flags?: Partial<Record<FlagId, boolean>>;
   activities?: Activity[];
+  emoms?: EmomLog[];
 }
 
 export interface Settings {
@@ -34,6 +36,9 @@ export interface Settings {
   lastBackup?: string;
   theme?: Theme;
   goal?: WeightGoal;
+  heightCm?: number;
+  strideCm?: number; // walking step length measured from a real walk
+  emom?: EmomSetup;
 }
 
 export interface WeightGoal {

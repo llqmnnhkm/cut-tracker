@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityTitle, replaySlice, addFix, breakTrack, clock, distance, emptyTrack, km, pace, routePoints, thinRoute, type LatLng } from './activity';
+import { activityTitle, estimateSteps, replaySlice, strideFromWalk, addFix, breakTrack, clock, distance, emptyTrack, km, pace, routePoints, thinRoute, type LatLng } from './activity';
 
 // About 11.1 m per 0.0001 degree of latitude.
 const north = (n: number): LatLng => [3.1 + n * 0.0001, 101.6];
@@ -82,5 +82,25 @@ describe('routes', () => {
     expect(thin[0]).toEqual(route[0]);
     expect(thin[thin.length - 1]).toEqual(route[100]);
     expect(thin.length).toBeLessThan(20);
+  });
+});
+
+describe('step estimates', () => {
+  it('needs a height or a measured step for walks', () => {
+    expect(estimateSteps({ type: 'walk', meters: 1000, seconds: 720 })).toBeNull();
+    expect(estimateSteps({ type: 'walk', meters: 1000, seconds: 720 }, 170)).toBe(1421);
+    expect(estimateSteps({ type: 'walk', meters: 1000, seconds: 720 }, 170, 75)).toBe(1333);
+  });
+
+  it('uses cadence for runs', () => {
+    // 5 km in 30 min: about 168 steps a minute for 170 cm.
+    expect(estimateSteps({ type: 'run', meters: 5000, seconds: 1800 }, 170)).toBe(5033);
+    expect(estimateSteps({ type: 'run', meters: 5000, seconds: 1800 })).toBeNull();
+  });
+
+  it('measures step length from a walk', () => {
+    expect(strideFromWalk(2100, 3000)).toBe(70);
+    expect(strideFromWalk(200, 300)).toBeNull(); // too short to trust
+    expect(strideFromWalk(2000, 500)).toBeNull(); // 4 m steps, a typo
   });
 });

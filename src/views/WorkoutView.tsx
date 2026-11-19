@@ -5,6 +5,8 @@ import type { Store } from '../store';
 import { setCheck } from '../checks';
 import { buildChecklist, sessionLabel, timerRun, type CheckItem } from '../workout';
 import { SessionCoin } from './TodayView';
+import { EmomPanel } from '../EmomPanel';
+import { useEmom } from '../emom';
 
 interface Props extends DateNav {
   store: Store;
@@ -21,6 +23,7 @@ export function WorkoutView({ store, date, today, setDate, onSetDone, onSessionO
   const day = dayPlan(store, date);
   const list = buildChecklist(day);
   const checks = log?.checks ?? {};
+  const emom = useEmom();
 
   const toggle = (item: CheckItem, n: number, on: boolean) => {
     const result = setCheck(date, item, n, on);
@@ -59,6 +62,8 @@ export function WorkoutView({ store, date, today, setDate, onSetDone, onSessionO
               <span class="tile-sub">{day.steps !== null ? `${fmt(day.steps)} steps today` : 'No step target today'}</span>
             </span>
           </div>
+
+          <EmomPanel date={date} today={today} run={emom} logs={log?.emoms ?? []} />
 
           {list.message && <Note>{list.message}</Note>}
           {list.finisherSkipped && <Note>Skip the finisher today.</Note>}
