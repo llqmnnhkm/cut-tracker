@@ -7,6 +7,7 @@ import {
   DECISION_DATE,
   DECISION_LIMIT,
   JOG_DAYS,
+  PLAN_GOAL,
   PHASES,
   ROTATION,
   WEIGH_IN,
@@ -139,3 +140,12 @@ export const nextCheckpoint = (date: string) => CHECKPOINTS.find((c) => c.date >
 export const isAboveDecisionLimit = (store: Store) => (store.days[DECISION_DATE]?.weight ?? 0) > DECISION_LIMIT;
 
 export const showRebound = (date: string) => date >= WEIGH_IN && date <= addDays(WEIGH_IN, 5);
+
+export const goalFor = (store: Store) => store.settings.goal ?? PLAN_GOAL;
+
+// Kilograms per week needed to get from one weight to another, losing only.
+export function weeklyLoss(fromKg: number, toKg: number, fromDate: string, toDate: string): number {
+  const days = daysBetween(fromDate, toDate);
+  if (days <= 0) return fromKg > toKg ? Infinity : 0;
+  return Math.max(0, ((fromKg - toKg) / days) * 7);
+}

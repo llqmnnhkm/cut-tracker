@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { addDays, daysBetween, localToday, shortDate, weekdayName } from './dates';
 import { CHECKPOINTS, CUT_SCHEDULE, FLAGS, PHASES, REBOUND_NOTE } from './plan';
 import * as plan from './plan';
-import { dayPlan, isAboveDecisionLimit, parseAmount, phaseFor, sessionFor, showRebound, targetsFor, totals, weightSeries } from './rules';
+import { dayPlan, goalFor, weeklyLoss, isAboveDecisionLimit, parseAmount, phaseFor, sessionFor, showRebound, targetsFor, totals, weightSeries } from './rules';
 import { emptyStore, parseStore, type DayLog, type Store } from './store';
 
 const withDays = (days: Record<string, DayLog>): Store => ({ ...emptyStore(), days });
@@ -211,5 +211,19 @@ describe('backup files', () => {
 
   it.each(['not json', '{}', '{"version":2,"days":{}}', '{"version":1,"days":null}'])('rejects %s', (raw) => {
     expect(parseStore(raw)).toBeNull();
+  });
+});
+
+describe('weight goal', () => {
+  it('defaults to the plan and can be changed', () => {
+    expect(goalFor(emptyStore())).toEqual({ weight: 78, date: '2026-11-13' });
+    const store = { ...emptyStore(), settings: { ...emptyStore().settings, goal: { weight: 75, date: '2027-01-31' } } };
+    expect(goalFor(store)).toEqual({ weight: 75, date: '2027-01-31' });
+  });
+
+  it('works out the weekly loss a goal needs', () => {
+    expect(weeklyLoss(80, 78, '2026-12-01', '2026-12-29')).toBeCloseTo(0.5);
+    expect(weeklyLoss(80, 78, '2026-12-01', '2026-12-08')).toBeCloseTo(2);
+    expect(weeklyLoss(78, 80, '2026-12-01', '2026-12-29')).toBe(0);
   });
 });

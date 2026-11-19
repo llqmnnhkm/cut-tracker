@@ -1,4 +1,5 @@
-import { activityTitle, clock, km, pace, routePoints, type Activity, type ActivityType, type LatLng } from './activity';
+import { useEffect, useState } from 'preact/hooks';
+import { activityTitle, clock, km, pace, replaySlice, routeXY, toPoints, type Activity, type ActivityType, type LatLng } from './activity';
 import { addDays, shortDate, weekdayIndex } from './dates';
 import type { Store } from './store';
 
@@ -19,21 +20,84 @@ export const ACTIVITY_ICONS: Record<ActivityType, preact.JSX.Element> = {
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit' });
 
-export function Route({ route, big }: { route: LatLng[]; big?: boolean }) {
+const REPLAY_MS = 9000;
+
+// Draws a route, and with an activity, a play button that replays it as a moving dot.
+export function Route({ route, big, activity }: { route: LatLng[]; big?: boolean; activity?: Activity }) {
   const w = 320;
   const h = big ? 170 : 150;
-  const points = routePoints(route, w, h, 18);
-  if (!points) return null;
-  const ends = points.split(' ');
-  const [sx, sy] = ends[0].split(',');
-  const [ex, ey] = ends[ends.length - 1].split(',');
+  const xy = routeXY(route, w, h, 18);
+  const [progress, setProgress] = useState<number | null>(null);
+  const playing = progress !== null;
+
+  useEffect(() => {
+    if (!playing) return;
+    let frame = 0;
+    let doneTimer = 0;
+    const begin = performance.now() - (progress ?? 0) * REPLAY_MS;
+    const step = (now: number) => {
+      const p = Math.min(1, (now - begin) / REPLAY_MS);
+      setProgress(p);
+      if (p < 1) frame = requestAnimationFrame(step);
+      else doneTimer = window.setTimeout(() => setProgress(null), 1800);
+    };
+    frame = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(doneTimer);
+    };
+  }, [playing]);
+
+  if (xy.length < 2) return null;
+  const all = toPoints(xy);
+  const [sx, sy] = xy[0];
+  const [ex, ey] = xy[xy.length - 1];
+  const slice = playing ? replaySlice(xy, progress!) : null;
+
   return (
-    <svg class={big ? 'route route-big' : 'route'} viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Route map">
-      <polyline class="route-under" points={points} />
-      <polyline class="route-line" points={points} />
-      <circle class="route-start" cx={sx} cy={sy} r="5" />
-      <circle class="route-end" cx={ex} cy={ey} r="5" />
-    </svg>
+    <div class={big ? 'route-wrap route-big' : 'route-wrap'}>
+      <svg class="route" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={playing ? 'Route replay' : 'Route map'} onClick={() => playing && setProgress(null)}>
+        {slice ? (
+          <>
+            <polyline class="route-ghost" points={all} />
+            <polyline class="route-under" points={toPoints(slice.path)} />
+            <polyline class="route-line" points={toPoints(slice.path)} />
+            <circle class="route-start" cx={sx} cy={sy} r="5" />
+            {slice.head && (
+              <>
+                <circle class="route-pulse" cx={slice.head[0]} cy={slice.head[1]} r="12" />
+                <circle class="route-head" cx={slice.head[0]} cy={slice.head[1]} r="6.5" />
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <polyline class="route-under" points={all} />
+            <polyline class="route-line" points={all} />
+            <circle class="route-start" cx={sx} cy={sy} r="5" />
+            <circle class="route-end" cx={ex} cy={ey} r="5" />
+          </>
+        )}
+      </svg>
+      {activity && playing && (
+        <div class="replay-stats num" aria-live="off">
+          <span>
+            <b>{km(activity.meters * progress!)}</b> km
+          </span>
+          <span>
+            <b>{clock(activity.seconds * progress!)}</b>
+          </span>
+        </div>
+      )}
+      {activity && !playing && (
+        <button type="button" class="replay-btn" onClick={() => setProgress(0)} aria-label="Replay this activity">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5.5v13l10.5-6.5z" />
+          </svg>
+          Replay
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -84,7 +148,7 @@ export function ActivityCard({ date, activity: a, onRemove }: CardProps) {
           { label: 'Time', value: clock(a.seconds) },
         ]}
       />
-      {a.route && <Route route={a.route} />}
+      {a.route && <Route route={a.route} activity={a} />}
     </article>
   );
 }

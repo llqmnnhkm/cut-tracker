@@ -33,6 +33,12 @@ export interface Settings {
   restSeconds: number;
   lastBackup?: string;
   theme?: Theme;
+  goal?: WeightGoal;
+}
+
+export interface WeightGoal {
+  weight: number;
+  date: string;
 }
 
 export interface Store {

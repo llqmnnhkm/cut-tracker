@@ -531,14 +531,83 @@ h1 {
 
 /* Route maps */
 
-.route {
-  display: block;
-  width: calc(100% + 32px);
+.route-wrap {
+  position: relative;
   margin: 14px -16px -16px;
   background-color: var(--map);
   background-image: linear-gradient(var(--map-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--map-grid) 1px, transparent 1px);
   background-size: 28px 28px;
+}
+
+.route {
+  display: block;
+  width: 100%;
+}
+
+.route-ghost {
+  fill: none;
+  stroke: var(--muted);
+  stroke-dasharray: 2 6;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.55;
+}
+
+.route-head {
+  fill: var(--orange);
+  stroke: var(--surface);
+  stroke-width: 3;
+}
+
+.route-pulse {
+  fill: var(--orange);
+  opacity: 0.25;
+}
+
+.replay-btn {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px 0 10px;
+  background: var(--surface);
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.replay-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--orange);
+}
+
+.replay-stats {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  display: flex;
+  gap: 12px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.replay-stats b {
+  color: var(--ink);
+  font-size: 16px;
 }
 
 .route-under {
@@ -1246,7 +1315,7 @@ h1 {
   background-size: 28px 28px;
 }
 
-.rec-map .route {
+.rec-map .route-wrap {
   width: 100%;
   margin: 0;
   background: none;
@@ -1409,6 +1478,39 @@ h1 {
 .fill-bottom {
   stop-color: var(--orange);
   stop-opacity: 0;
+}
+
+.goal-line {
+  stroke: var(--good);
+  stroke-dasharray: 5 4;
+  stroke-width: 1.8;
+}
+
+.goal-label {
+  fill: var(--good);
+  font-family: var(--body);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.goal-dot {
+  fill: var(--good);
+  stroke: var(--surface);
+  stroke-width: 2.5;
+}
+
+.goal .prog {
+  margin-top: 14px;
+}
+
+.goal-sub {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.week-head .textlink {
+  min-height: 32px;
+  padding: 0;
 }
 
 .trend {
@@ -1624,6 +1726,12 @@ h1 {
     animation: slideUp 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.05);
   }
 
+  .route-pulse {
+    animation: pulse 1.2s ease-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
   .recdot:not(.recdot-paused) {
     animation: blink 1.2s ease-in-out infinite;
   }
@@ -1654,6 +1762,17 @@ h1 {
   }
   50% {
     transform: scale(1.25);
+  }
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(0.5);
+    opacity: 0.45;
+  }
+  to {
+    transform: scale(1.4);
+    opacity: 0;
   }
 }
 

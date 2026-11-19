@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activityTitle, addFix, breakTrack, clock, distance, emptyTrack, km, pace, routePoints, thinRoute, type LatLng } from './activity';
+import { activityTitle, replaySlice, addFix, breakTrack, clock, distance, emptyTrack, km, pace, routePoints, thinRoute, type LatLng } from './activity';
 
 // About 11.1 m per 0.0001 degree of latitude.
 const north = (n: number): LatLng => [3.1 + n * 0.0001, 101.6];
@@ -66,6 +66,14 @@ describe('routes', () => {
       expect(y).toBeGreaterThanOrEqual(10);
       expect(y).toBeLessThanOrEqual(140);
     }
+  });
+
+  it('replays along the route by length', () => {
+    const xy: [number, number][] = [[0, 0], [10, 0], [10, 30]];
+    expect(replaySlice(xy, 0).head).toEqual([0, 0]);
+    expect(replaySlice(xy, 0.5).head).toEqual([10, 10]);
+    expect(replaySlice(xy, 0.5).path).toEqual([[0, 0], [10, 0], [10, 10]]);
+    expect(replaySlice(xy, 1).head).toEqual([10, 30]);
   });
 
   it('thins close points but keeps both ends', () => {

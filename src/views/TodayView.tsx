@@ -22,7 +22,7 @@ import {
   type FlagId,
   type SessionId,
 } from '../plan';
-import { dayPlan, isAboveDecisionLimit, nextCheckpoint, phaseFor, showRebound, targetsFor, totals } from '../rules';
+import { dayPlan, goalFor, isAboveDecisionLimit, nextCheckpoint, phaseFor, showRebound, targetsFor, totals } from '../rules';
 import { updateDay, type Store } from '../store';
 import { sessionLabel } from '../workout';
 
@@ -174,7 +174,9 @@ export function TodayView({ store, date, today, setDate }: DateNav & { store: St
           <Stat index={6} label="Weight" value={log?.weight !== undefined ? `${log.weight}` : '–'} unit={log?.weight !== undefined ? 'kg' : undefined}>
             {checkpointToday
               ? `Checkpoint today: ≤ ${checkpointToday.target.toFixed(1)} kg.`
-              : next && `Next: ≤ ${next.target.toFixed(1)} kg on ${shortDate(next.date)}.`}
+              : next
+                ? `Next: ≤ ${next.target.toFixed(1)} kg on ${shortDate(next.date)}.`
+                : goalFor(store).date >= date && `Goal: ${goalFor(store).weight} kg by ${shortDate(goalFor(store).date)}.`}
             {checkpointToday && date !== WEIGH_IN && log?.weight !== undefined && log.weight > checkpointToday.target && ` ${ABOVE_CHECKPOINT_NOTE}`}
           </Stat>
         </div>

@@ -168,3 +168,6 @@ export const FLAGS: { id: FlagId; label: string; advice: string }[] = [
   { id: 'dizzy', label: 'Dizzy or shaky', advice: 'Eat something and rest.' },
   { id: 'emergency', label: 'Fainting, confusion or a racing heart', advice: 'Stop and get medical help.' },
 ];
+
+export const PLAN_GOAL = { weight: 78, date: WEIGH_IN };
+export const GOAL_PACE_NOTE = 'That needs more than about 1 kg a week. A later date is gentler and easier to keep.';

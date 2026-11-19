@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { Note } from '../components';
+import { Note, NumberField } from '../components';
 import { addDays, daysBetween, localToday, shortDate } from '../dates';
 import {
   ABOVE_ANY_CHECKPOINT_NOTE,
@@ -11,21 +11,23 @@ import {
   SWING_NOTE,
   WEIGH_IN,
   WEIGH_NOTE,
+  GOAL_PACE_NOTE,
+  PLAN_GOAL,
 } from '../plan';
-import { isAboveDecisionLimit, showRebound, weightSeries, type WeightPoint } from '../rules';
-import type { Store } from '../store';
+import { goalFor, isAboveDecisionLimit, showRebound, weeklyLoss, weightSeries, type WeightPoint } from '../rules';
+import { updateSettings, type Store, type WeightGoal } from '../store';
 
 const W = 340;
 const H = 230;
 const M = { top: 10, right: 12, bottom: 24, left: 30 };
 
-function Chart({ points }: { points: WeightPoint[] }) {
+function Chart({ points, goal }: { points: WeightPoint[]; goal: WeightGoal }) {
   const [selected, setSelected] = useState<string | null>(null);
 
   const lastLogged = points[points.length - 1]?.date ?? PLAN_START;
-  const end = lastLogged > WEIGH_IN ? lastLogged : WEIGH_IN;
+  const end = [lastLogged, WEIGH_IN, goal.date].sort().pop()!;
   const span = daysBetween(PLAN_START, end);
-  const values = [...points.map((p) => p.weight), ...CHECKPOINTS.map((c) => c.target), 82];
+  const values = [...points.map((p) => p.weight), ...CHECKPOINTS.map((c) => c.target), 82, goal.weight];
   const low = Math.floor(Math.min(...values) - 0.5);
   const high = Math.ceil(Math.max(...values) + 0.5);
 
@@ -74,6 +76,9 @@ function Chart({ points }: { points: WeightPoint[] }) {
           <text key={d} class="axis" x={x(d)} y={H - 6} text-anchor="middle">{shortDate(d).split(' ')[0]}</text>
         ))}
         {active && <line class="crosshair" x1={x(active.date)} x2={x(active.date)} y1={M.top} y2={H - M.bottom} />}
+        <line class="goal-line" x1={M.left} x2={W - M.right} y1={y(goal.weight)} y2={y(goal.weight)} />
+        <text class="goal-label" x={W - M.right - 2} y={y(goal.weight) - 5} text-anchor="end">Goal {goal.weight}</text>
+        {goal.date >= PLAN_START && <circle class="goal-dot" cx={x(goal.date)} cy={y(goal.weight)} r="5" />}
         {CHECKPOINTS.map((c) => (
           <rect key={c.date} class="checkpoint" x={x(c.date) - 4.5} y={y(c.target) - 4.5} width="9" height="9" rx="2" />
         ))}
@@ -101,8 +106,97 @@ function Chart({ points }: { points: WeightPoint[] }) {
         <span><svg viewBox="0 0 12 12" aria-hidden="true"><circle class="dot" cx="6" cy="6" r="4" /></svg> Logged</span>
         <span><svg viewBox="0 0 16 12" aria-hidden="true"><line class="trend" x1="1" x2="15" y1="6" y2="6" /></svg> 5-day trend</span>
         <span><svg viewBox="0 0 12 12" aria-hidden="true"><rect class="checkpoint" x="1.5" y="1.5" width="9" height="9" rx="2" /></svg> Checkpoint</span>
+        <span><svg viewBox="0 0 16 12" aria-hidden="true"><line class="goal-line" x1="1" x2="15" y1="6" y2="6" /></svg> Goal</span>
       </figcaption>
     </figure>
+  );
+}
+
+function GoalCard({ store, latest }: { store: Store; latest: WeightPoint | undefined }) {
+  const goal = goalFor(store);
+  const [editing, setEditing] = useState(false);
+  const [weight, setWeight] = useState<number | undefined>(goal.weight);
+  const [date, setDate] = useState(goal.date);
+  const today = localToday();
+  const now = latest?.trend;
+  const toGo = now !== undefined ? now - goal.weight : undefined;
+  const daysLeft = daysBetween(today, goal.date);
+  const start = weightSeries(store)[0]?.weight ?? 82;
+  const done = now !== undefined && start !== goal.weight ? Math.min(1, Math.max(0, (start - now) / (start - goal.weight))) : 0;
+
+  const open = () => {
+    setWeight(goal.weight);
+    setDate(goal.date > today ? goal.date : addDays(today, 28));
+    setEditing(true);
+  };
+  const valid = weight !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(date) && date > today;
+  const fast = valid && now !== undefined && weeklyLoss(now, weight!, today, date) > 1;
+  const save = () => {
+    if (!valid) return;
+    updateSettings({ goal: { weight: weight!, date } });
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <section class="panel">
+        <h3>Edit goal</h3>
+        <div class="grid-2">
+          <NumberField label="Goal weight" unit="kg" decimal min={30} max={250} value={weight} onCommit={setWeight} />
+          <label class="field">
+            <span class="field-label">By</span>
+            <span class="inp">
+              <input type="date" min={addDays(today, 1)} value={date} onInput={(e) => setDate(e.currentTarget.value)} />
+            </span>
+          </label>
+        </div>
+        {!valid && <p class="field-error">Pick a goal weight and a date after today.</p>}
+        {fast && <p class="note">{GOAL_PACE_NOTE}</p>}
+        <div class="button-row">
+          <button class="btn" type="button" disabled={!valid} onClick={save}>Save goal</button>
+          <button class="btn btn-quiet" type="button" onClick={() => setEditing(false)}>Cancel</button>
+        </div>
+        {store.settings.goal && (
+          <button
+            type="button"
+            class="textlink textlink-quiet"
+            onClick={() => {
+              updateSettings({ goal: undefined });
+              setEditing(false);
+            }}
+          >
+            Go back to the plan's goal ({PLAN_GOAL.weight} kg by {shortDate(PLAN_GOAL.date)})
+          </button>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section class="feed goal">
+      <header class="week-head">
+        <b>Goal</b>
+        <button type="button" class="textlink" onClick={open}>Edit</button>
+      </header>
+      <div class="feed-stats">
+        <span>
+          <small>Target</small>
+          <b class="num">{goal.weight}<i>kg</i></b>
+        </span>
+        <span>
+          <small>To go</small>
+          <b class="num">{toGo === undefined ? '–' : toGo <= 0 ? 'Done' : toGo.toFixed(1)}{toGo !== undefined && toGo > 0 && <i>kg</i>}</b>
+        </span>
+        <span>
+          <small>{daysLeft >= 0 ? 'Days left' : 'Ended'}</small>
+          <b class="num">{daysLeft >= 0 ? daysLeft : shortDate(goal.date)}</b>
+        </span>
+      </div>
+      <div class="prog" aria-hidden="true"><i style={{ width: `${done * 100}%` }} /></div>
+      <p class="muted-text goal-sub">
+        By {shortDate(goal.date)} · measured on the 5-day trend{daysLeft < 0 && '. Tap Edit to set a new one'}
+      </p>
+    </section>
   );
 }
 
@@ -111,13 +205,14 @@ export function WeightView({ store }: { store: Store }) {
   const today = localToday();
   const latest = points[points.length - 1];
   const onDate = (d: string) => store.days[d]?.weight;
+  const goal = goalFor(store);
 
   return (
     <>
       <header class="datebar">
         <div>
           <h1>Weight</h1>
-          <p class="meta">82 → 78 kg by {shortDate(WEIGH_IN)}</p>
+          <p class="meta">Goal {goal.weight} kg by {shortDate(goal.date)}</p>
         </div>
       </header>
 
@@ -134,8 +229,10 @@ export function WeightView({ store }: { store: Store }) {
         </div>
       </div>
 
+      <GoalCard store={store} latest={latest} />
+
       <section class="panel">
-        <Chart points={points} />
+        <Chart points={points} goal={goal} />
       </section>
       <Note>{SWING_NOTE}</Note>
 
@@ -143,7 +240,7 @@ export function WeightView({ store }: { store: Store }) {
       {showRebound(today) && <Note>{REBOUND_NOTE}</Note>}
 
       <section class="panel">
-        <h3>Checkpoints</h3>
+        <h3>Cut checkpoints</h3>
         <table class="table">
           <thead>
             <tr><th scope="col">Date</th><th scope="col">Target</th><th scope="col">Logged</th></tr>

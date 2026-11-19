@@ -88,9 +88,9 @@ export function activityTitle(a: Pick<Activity, 'type' | 'start'>) {
   return `${part} ${ACTIVITY_NAMES[a.type]}`;
 }
 
-// Fits a route into a box, keeping its shape, for drawing as an SVG polyline.
-export function routePoints(route: LatLng[], width: number, height: number, pad = 12): string {
-  if (route.length < 2) return '';
+// Fits a route into a box, keeping its shape, as x,y points for an SVG.
+export function routeXY(route: LatLng[], width: number, height: number, pad = 12): [number, number][] {
+  if (route.length < 2) return [];
   const lat0 = rad(route.reduce((s, p) => s + p[0], 0) / route.length);
   const xs = route.map((p) => p[1] * Math.cos(lat0));
   const ys = route.map((p) => -p[0]);
@@ -101,7 +101,35 @@ export function routePoints(route: LatLng[], width: number, height: number, pad 
   const scale = Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY);
   const offX = (width - spanX * scale) / 2;
   const offY = (height - spanY * scale) / 2;
-  return xs.map((x, i) => `${(offX + (x - minX) * scale).toFixed(1)},${(offY + (ys[i] - minY) * scale).toFixed(1)}`).join(' ');
+  return xs.map((x, i) => [+(offX + (x - minX) * scale).toFixed(1), +(offY + (ys[i] - minY) * scale).toFixed(1)]);
+}
+
+export const toPoints = (xy: [number, number][]) => xy.map(([x, y]) => `${x},${y}`).join(' ');
+
+export function routePoints(route: LatLng[], width: number, height: number, pad = 12): string {
+  return toPoints(routeXY(route, width, height, pad));
+}
+
+// The part of a drawn route covered after a fraction of its length, ending at the moving dot.
+// Routes keep no timestamps, so a replay assumes an even pace from start to finish.
+export function replaySlice(xy: [number, number][], fraction: number) {
+  if (xy.length === 0) return { path: [] as [number, number][], head: null };
+  const f = Math.min(1, Math.max(0, fraction));
+  const lengths = xy.slice(1).map((p, i) => Math.hypot(p[0] - xy[i][0], p[1] - xy[i][1]));
+  let left = lengths.reduce((a, b) => a + b, 0) * f;
+  const path: [number, number][] = [xy[0]];
+  for (let i = 0; i < lengths.length; i++) {
+    if (left >= lengths[i]) {
+      left -= lengths[i];
+      path.push(xy[i + 1]);
+      continue;
+    }
+    const t = lengths[i] ? left / lengths[i] : 0;
+    const head: [number, number] = [xy[i][0] + (xy[i + 1][0] - xy[i][0]) * t, xy[i][1] + (xy[i + 1][1] - xy[i][1]) * t];
+    path.push(head);
+    return { path, head };
+  }
+  return { path, head: xy[xy.length - 1] };
 }
 
 // Keeps long routes small in storage by dropping points closer than a few metres apart.
