@@ -1,25 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { emomPosition, roundsIn } from './emom';
+import { alertsFor, emomPhase } from './emom';
 
-const run = { exercise: 'Push ups', reps: 20, everyMin: 5, totalMin: 60, start: 0, pausedAt: null };
+const run = { exercise: 'Push ups', reps: 20, rounds: 12, done: 0, restUntil: null as number | null, pausedLeft: null as number | null };
 
-describe('every X minutes', () => {
-  it('counts rounds in a session', () => {
-    expect(roundsIn(run)).toBe(12);
-    expect(roundsIn({ everyMin: 5, totalMin: 62 })).toBe(12);
-    expect(roundsIn({ everyMin: 5, totalMin: 3 })).toBe(1);
+describe('sets with timed rest', () => {
+  it('waits on a set until Done is tapped', () => {
+    expect(emomPhase(run, 999_999)).toEqual({ phase: 'set', set: 1, left: 0 });
   });
 
-  it('finds the round and time left', () => {
-    expect(emomPosition(run, 0)).toMatchObject({ round: 1, left: 300, ended: false });
-    expect(emomPosition(run, 299_500)).toMatchObject({ round: 1, left: 1 });
-    expect(emomPosition(run, 300_000)).toMatchObject({ round: 2, left: 300 });
-    expect(emomPosition(run, 11 * 300_000 + 60_000)).toMatchObject({ round: 12, left: 240, ended: false });
-    expect(emomPosition(run, 3_600_000)).toMatchObject({ round: 12, ended: true });
+  it('counts down rest, then moves to the next set', () => {
+    const resting = { ...run, done: 3, restUntil: 300_000 };
+    expect(emomPhase(resting, 0)).toEqual({ phase: 'rest', set: 4, left: 300 });
+    expect(emomPhase(resting, 299_500)).toEqual({ phase: 'rest', set: 4, left: 1 });
+    expect(emomPhase(resting, 300_000)).toEqual({ phase: 'set', set: 4, left: 0 });
   });
 
-  it('stands still while paused', () => {
-    const paused = { ...run, pausedAt: 90_000 };
-    expect(emomPosition(paused, 999_999)).toMatchObject({ round: 1, left: 210 });
+  it('holds rest while paused, and ends after the last set', () => {
+    expect(emomPhase({ ...run, done: 2, pausedLeft: 90_000 }, 5_000_000)).toEqual({ phase: 'paused', set: 3, left: 90 });
+    expect(emomPhase({ ...run, done: 12 }, 0)).toMatchObject({ phase: 'finished' });
+  });
+
+  it('alerts when rest ends, and nudges two minutes later', () => {
+    const alerts = alertsFor({ ...run, done: 3 }, 300_000);
+    expect(alerts).toEqual([
+      { at: 300_000, title: 'Rest over · set 4 of 12', body: 'Time for 20 push ups.' },
+      { at: 420_000, title: 'Set 4 of 12 is waiting', body: '20 push ups, then tap Done.' },
+    ]);
   });
 });

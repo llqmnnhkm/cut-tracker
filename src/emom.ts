@@ -1,42 +1,65 @@
-// "Every X minutes": do a set at the start of each block, rest for the rest of it.
-// The running session is saved as it goes, so a reload carries on.
+// Sets with timed rest: do the reps, tap Done, rest for a set time, then it rings for
+// the next set. The running session is saved as it goes, so a reload carries on.
 
 import { useEffect, useState } from 'preact/hooks';
 import { getStore, updateDay, updateSettings } from './store';
+import { cancelAlerts, scheduleAlerts, type AlertStatus, type PushAlert } from './push';
 
 export interface EmomSetup {
   exercise: string;
   reps: number;
-  everyMin: number;
-  totalMin: number;
+  restMin: number;
+  rounds: number;
 }
 
-export interface EmomLog extends EmomSetup {
+export interface EmomLog {
   id: string;
   start: number;
-  rounds: number; // rounds ticked done
+  exercise: string;
+  reps: number;
+  rounds: number; // sets done
   of: number;
+  restMin?: number;
+  everyMin?: number; // logs saved by the first version, which ran on a fixed clock
 }
 
 export interface EmomRun extends EmomSetup {
   date: string;
-  start: number; // moves forward by paused time on resume
-  pausedAt: number | null;
-  done: number[];
+  start: number;
+  done: number; // sets finished
+  restUntil: number | null; // while resting
+  pausedLeft: number | null; // ms of rest left, while paused
 }
 
-export const DEFAULT_EMOM: EmomSetup = { exercise: 'Push ups', reps: 20, everyMin: 5, totalMin: 60 };
+export const DEFAULT_EMOM: EmomSetup = { exercise: 'Push ups', reps: 20, restMin: 5, rounds: 12 };
 
-export const roundsIn = (s: Pick<EmomSetup, 'everyMin' | 'totalMin'>) => Math.max(1, Math.floor(s.totalMin / s.everyMin));
+// Reads the saved setup, including the first version's "every X min for Y min" shape.
+export function savedSetup(): EmomSetup {
+  const s = getStore().settings.emom as (Partial<EmomSetup> & { everyMin?: number; totalMin?: number }) | undefined;
+  if (!s) return DEFAULT_EMOM;
+  const restMin = s.restMin ?? s.everyMin ?? DEFAULT_EMOM.restMin;
+  const rounds = s.rounds ?? (s.totalMin && s.everyMin ? Math.max(1, Math.floor(s.totalMin / s.everyMin)) : DEFAULT_EMOM.rounds);
+  return { exercise: s.exercise ?? DEFAULT_EMOM.exercise, reps: s.reps ?? DEFAULT_EMOM.reps, restMin, rounds };
+}
 
-// Where a run is: the round (1 based), seconds left in it, and whether it has ended.
-export function emomPosition(run: EmomSetup & { start: number; pausedAt: number | null }, now: number) {
-  const total = roundsIn(run);
-  const block = run.everyMin * 60;
-  const elapsed = Math.max(0, ((run.pausedAt ?? now) - run.start) / 1000);
-  const index = Math.floor(elapsed / block);
-  if (index >= total) return { round: total, left: 0, elapsed: total * block, total, ended: true };
-  return { round: index + 1, left: Math.ceil(block - (elapsed - index * block)), elapsed, total, ended: false };
+export type EmomPhase = 'set' | 'rest' | 'paused' | 'finished';
+
+// Where a run is now. Rest that has run out turns into the next set.
+export function emomPhase(run: Pick<EmomRun, 'done' | 'rounds' | 'restUntil' | 'pausedLeft'>, now: number) {
+  if (run.done >= run.rounds) return { phase: 'finished' as EmomPhase, set: run.rounds, left: 0 };
+  if (run.pausedLeft !== null) return { phase: 'paused' as EmomPhase, set: run.done + 1, left: Math.ceil(run.pausedLeft / 1000) };
+  if (run.restUntil !== null && run.restUntil > now) return { phase: 'rest' as EmomPhase, set: run.done + 1, left: Math.ceil((run.restUntil - now) / 1000) };
+  return { phase: 'set' as EmomPhase, set: run.done + 1, left: 0 };
+}
+
+// The alert for the end of a rest, and a nudge two minutes later in case it was missed.
+export function alertsFor(run: Pick<EmomRun, 'done' | 'rounds' | 'reps' | 'exercise'>, restUntil: number): PushAlert[] {
+  const set = run.done + 1;
+  const what = `${run.reps} ${run.exercise.toLowerCase()}`;
+  return [
+    { at: restUntil, title: `Rest over · set ${set} of ${run.rounds}`, body: `Time for ${what}.` },
+    { at: restUntil + 2 * 60_000, title: `Set ${set} of ${run.rounds} is waiting`, body: `${what}, then tap Done.` },
+  ];
 }
 
 const KEY = 'cut-tracker-emom';
@@ -44,14 +67,18 @@ const KEY = 'cut-tracker-emom';
 function load(): EmomRun | null {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as EmomRun) : null;
+    const run = raw ? (JSON.parse(raw) as EmomRun) : null;
+    // A session from the first version can't carry on in this one.
+    return run && typeof run.done === 'number' ? run : null;
   } catch {
     return null;
   }
 }
 
 let current: EmomRun | null = load();
+let alertStatus: AlertStatus | 'pending' | null = null;
 const listeners = new Set<() => void>();
+const notify = () => listeners.forEach((l) => l());
 
 function set(next: EmomRun | null) {
   current = next;
@@ -61,55 +88,100 @@ function set(next: EmomRun | null) {
   } catch {
     // Keeps running in memory.
   }
-  listeners.forEach((l) => l());
+  notify();
+}
+
+export const getAlertStatus = () => alertStatus;
+
+function setAlerts(alerts: PushAlert[]) {
+  alertStatus = 'pending';
+  notify();
+  void scheduleAlerts(alerts).then((status) => {
+    alertStatus = status;
+    notify();
+  });
+}
+
+function clearAlerts() {
+  void cancelAlerts();
 }
 
 export function startEmom(date: string, setup: EmomSetup) {
   updateSettings({ emom: setup });
-  set({ ...setup, date, start: Date.now(), pausedAt: null, done: [] });
+  alertStatus = null;
+  set({ ...setup, date, start: Date.now(), done: 0, restUntil: null, pausedLeft: null });
 }
 
-export function pauseEmom() {
-  if (current && current.pausedAt === null) set({ ...current, pausedAt: Date.now() });
-}
-
-export function resumeEmom() {
-  if (current && current.pausedAt !== null) set({ ...current, start: current.start + Date.now() - current.pausedAt, pausedAt: null });
-}
-
-export function toggleRound(round: number) {
+// Call straight from the tap: iOS only asks for notification permission inside one.
+export function finishSet() {
   if (!current) return;
-  const done = current.done.includes(round) ? current.done.filter((r) => r !== round) : [...current.done, round];
-  set({ ...current, done });
+  const done = current.done + 1;
+  if (done >= current.rounds) {
+    set({ ...current, done, restUntil: null, pausedLeft: null });
+    clearAlerts();
+    return;
+  }
+  const restUntil = Date.now() + current.restMin * 60_000;
+  const run = { ...current, done, restUntil, pausedLeft: null };
+  set(run);
+  setAlerts(alertsFor(run, restUntil));
 }
 
-// Saves what was done to the day it started on. Nothing is saved if no round was ticked.
+// Takes back the last Done, for a mis-tap.
+export function undoSet() {
+  if (!current || current.done === 0) return;
+  set({ ...current, done: current.done - 1, restUntil: null, pausedLeft: null });
+  clearAlerts();
+}
+
+export function skipRest() {
+  if (!current) return;
+  set({ ...current, restUntil: null, pausedLeft: null });
+  clearAlerts();
+}
+
+export function pauseRest() {
+  if (!current || current.restUntil === null || current.pausedLeft !== null) return;
+  set({ ...current, pausedLeft: Math.max(0, current.restUntil - Date.now()), restUntil: null });
+  clearAlerts();
+}
+
+export function resumeRest() {
+  if (!current || current.pausedLeft === null) return;
+  const restUntil = Date.now() + current.pausedLeft;
+  const run = { ...current, restUntil, pausedLeft: null };
+  set(run);
+  setAlerts(alertsFor(run, restUntil));
+}
+
+export function addRestTime(seconds: number) {
+  if (!current || current.restUntil === null) return;
+  const restUntil = current.restUntil + seconds * 1000;
+  const run = { ...current, restUntil };
+  set(run);
+  setAlerts(alertsFor(run, restUntil));
+}
+
+// Saves what was done to the day it started on. Nothing is saved if no set was done.
 export function finishEmom() {
   if (!current) return;
   const r = current;
-  if (r.done.length > 0) {
-    const log: EmomLog = {
-      id: `${r.start}`,
-      exercise: r.exercise,
-      reps: r.reps,
-      everyMin: r.everyMin,
-      totalMin: r.totalMin,
-      start: r.start,
-      rounds: r.done.length,
-      of: roundsIn(r),
-    };
+  if (r.done > 0) {
+    const log: EmomLog = { id: `${r.start}`, start: r.start, exercise: r.exercise, reps: r.reps, restMin: r.restMin, rounds: r.done, of: r.rounds };
     updateDay(r.date, (d) => ({ ...d, emoms: [...(d.emoms ?? []), log] }));
   }
   set(null);
+  clearAlerts();
 }
 
-export const discardEmom = () => set(null);
+export function discardEmom() {
+  set(null);
+  clearAlerts();
+}
 
 export function removeEmom(date: string, id: string) {
   updateDay(date, (d) => ({ ...d, emoms: (d.emoms ?? []).filter((e) => e.id !== id) }));
 }
-
-export const savedSetup = (): EmomSetup => getStore().settings.emom ?? DEFAULT_EMOM;
 
 export function useEmom(): EmomRun | null {
   const [, tick] = useState(0);

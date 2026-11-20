@@ -9,7 +9,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['apple-touch-icon.png'],
-      workbox: { globPatterns: ['**/*.{js,css,html,woff2,png}'] },
+      workbox: { globPatterns: ['**/*.{js,css,html,woff2,png}'], importScripts: ['push-sw.js'] },
       manifest: {
         name: 'Cut Tracker',
         short_name: 'Cut',

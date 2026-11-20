@@ -2075,10 +2075,7 @@ h1 {
   height: 16px;
 }
 
-.emom-dot:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
+
 
 .emom-actions {
   display: flex;
@@ -2096,6 +2093,52 @@ h1 {
   background: rgb(255 255 255 / 0.18);
   box-shadow: none;
   color: #ffffff;
+}
+
+.emom-alerts {
+  max-width: 320px;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.emom-alerts.is-on {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
+.emom-go .emom-alerts {
+  background: rgb(255 255 255 / 0.18);
+  color: #ffffff;
+}
+
+.emom-rest-bar {
+  width: 100%;
+  max-width: 280px;
+  margin-top: 0;
+}
+
+.emom-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.emom-links {
+  display: flex;
+  gap: 18px;
+}
+
+.emom-go .textlink-quiet {
+  color: rgb(255 255 255 / 0.85);
+}
+
+.emom-label {
+  max-width: 300px;
 }
 
 .emom-discard {
@@ -2132,4 +2175,9 @@ h1 {
   .wrap > .emom {
     border-radius: 12px;
   }
+}
+
+.emom-go .emom-discard {
+  color: #ffffff;
+  text-decoration: underline;
 }

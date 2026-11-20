@@ -5,3 +5,5 @@ dev-dist
 .claude
 # Holds personal details that stay out of the public repo.
 CLAUDE.md
+.wrangler
+deploy.log
