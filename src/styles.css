@@ -1330,6 +1330,10 @@ h1 {
   background: var(--good);
 }
 
+.gps-fair i {
+  background: var(--warn);
+}
+
 .gps-denied,
 .gps-unavailable {
   color: var(--bad);

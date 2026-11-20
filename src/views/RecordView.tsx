@@ -39,6 +39,8 @@ function gpsText(r: Recording) {
       return 'Finding GPS…';
     case 'ok':
       return `GPS ready · ±${Math.round(r.accuracy ?? 0)} m`;
+    case 'fair':
+      return `GPS fair · ±${Math.round(r.accuracy ?? 0)} m. Smoothing it out.`;
     case 'weak':
       return 'Weak GPS. Distance may lag; time keeps counting.';
     case 'denied':
@@ -110,6 +112,11 @@ function Recorder({ rec }: { rec: Recording }) {
         <button type="button" class="textlink textlink-quiet rec-discard" onClick={discard}>
           Discard recording
         </button>
+      )}
+      {(rec.track.seen ?? 0) > 0 && (
+        <p class="muted-text rec-tip num">
+          GPS readings used: {rec.track.used ?? 0} of {rec.track.seen}
+        </p>
       )}
       <p class="muted-text rec-tip">Keep Cut Tracker open on screen. iPhone stops GPS for web apps when the screen locks or you switch apps.</p>
     </section>

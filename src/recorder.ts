@@ -6,7 +6,7 @@ import { addFix, breakTrack, emptyTrack, thinRoute, type Activity, type Activity
 import { localToday } from './dates';
 import { addActivity } from './store';
 
-export type GpsState = 'waiting' | 'ok' | 'weak' | 'denied' | 'unavailable';
+export type GpsState = 'waiting' | 'ok' | 'fair' | 'weak' | 'denied' | 'unavailable';
 
 export interface Recording {
   type: ActivityType;
@@ -75,9 +75,9 @@ function watch() {
         at: [pos.coords.latitude, pos.coords.longitude],
         accuracy: pos.coords.accuracy,
         time: pos.timestamp,
-      });
-      if (track !== current.track) recent.push({ time: pos.timestamp, meters: track.meters });
-      set({ ...current, track, accuracy: pos.coords.accuracy, gps: pos.coords.accuracy <= 30 ? 'ok' : 'weak' });
+      }, current.type);
+      if (track.meters !== current.track.meters) recent.push({ time: pos.timestamp, meters: track.meters });
+      set({ ...current, track, accuracy: pos.coords.accuracy, gps: pos.coords.accuracy <= 30 ? 'ok' : pos.coords.accuracy <= 65 ? 'fair' : 'weak' });
     },
     (err) => {
       if (!current) return;

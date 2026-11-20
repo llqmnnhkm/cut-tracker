@@ -15,19 +15,46 @@ describe('addFix', () => {
   const fix = (n: number, time: number, accuracy = 5) => ({ at: north(n), accuracy, time });
 
   it('adds distance along a walk', () => {
+    // 130 m at 1.3 m/s, one clean reading a second.
     let t = emptyTrack();
-    for (let i = 0; i <= 10; i++) t = addFix(t, fix(i, i * 10_000));
-    expect(t.meters).toBeCloseTo(111.2, 0);
-    expect(t.route).toHaveLength(11);
+    for (let s = 0; s <= 100; s++) t = addFix(t, { at: [3.1 + s * 1.3 * 0.000009, 101.6], accuracy: 5, time: s * 1000 });
+    expect(t.meters).toBeGreaterThan(126);
+    expect(t.meters).toBeLessThan(131);
+    expect(t.route.length).toBeGreaterThan(30);
   });
 
-  it('skips loose fixes, drift and impossible jumps', () => {
+  it('keeps up with a run', () => {
+    // 900 m at 3 m/s with ±30 m readings.
+    let t = emptyTrack();
+    let seed = 1;
+    const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 2 * 18 * 0.000009;
+    for (let s = 0; s <= 300; s++) t = addFix(t, { at: [3.1 + s * 3 * 0.000009 + noise(), 101.6 + noise()], accuracy: 30, time: s * 1000 }, 'run');
+    expect(t.meters).toBeGreaterThan(900 * 0.9);
+    expect(t.meters).toBeLessThan(900 * 1.1);
+  });
+
+  it('keeps the loose readings found between tall buildings', () => {
+    // A 1.3 m/s walk, one reading a second, each off by up to ±40 m sideways.
+    let t = emptyTrack();
+    for (let s = 0; s <= 300; s++) {
+      const wobble = (((s * 7919) % 17) - 8) * 0.00002; // about ±18 m east or west
+      t = addFix(t, { at: [3.1 + s * 1.3 * 0.000009, 101.6 + wobble], accuracy: 40, time: s * 1000 });
+    }
+    expect(t.used).toBe(301);
+    // 390 m walked: within 15%, not the 40% short the old filter read.
+    expect(t.meters).toBeGreaterThan(390 * 0.85);
+    expect(t.meters).toBeLessThan(390 * 1.15);
+  });
+
+  it('skips readings too loose to use, drift and impossible jumps', () => {
     let t = addFix(emptyTrack(), fix(0, 0));
     t = addFix(t, fix(5, 10_000, 80)); // too loose
     t = addFix(t, fix(0.2, 20_000)); // 2 m of drift
     t = addFix(t, fix(100, 21_000)); // 1.1 km in a second
     expect(t.meters).toBe(0);
     expect(t.route).toHaveLength(1);
+    expect(t.seen).toBe(4);
+    expect(t.used).toBe(2);
   });
 
   it('does not count the gap across a pause', () => {
@@ -36,7 +63,9 @@ describe('addFix', () => {
     t = breakTrack(t);
     t = addFix(t, fix(50, 600_000));
     t = addFix(t, fix(60, 660_000));
-    expect(t.meters).toBeCloseTo(222.4, 0);
+    // Two 111 m legs; the 444 m between them was not walked.
+    expect(t.meters).toBeGreaterThan(200);
+    expect(t.meters).toBeLessThan(230);
   });
 });
 

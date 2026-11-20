@@ -16,12 +16,16 @@ export interface Activity {
 
 export const ACTIVITY_NAMES: Record<ActivityType, string> = { walk: 'Walk', run: 'Run' };
 
-// Fixes worse than this are too loose to measure a walk with.
-export const MAX_ACCURACY = 30;
-// Moves shorter than this are usually GPS drift while standing still.
-const MIN_STEP = 4;
-// Faster than this between two fixes is a bad fix, not a sprint.
+// Readings looser than this are dropped. iPhone often reports ±30 to 65 m between tall
+// buildings; dropping those made the route cut corners and read short, so they are kept and smoothed.
+export const MAX_ACCURACY = 65;
+// Smoothed moves shorter than this wait to add up, so standing still doesn't count as distance.
+const MIN_STEP = 3;
+// Faster than this between readings is a bad reading, not a sprint.
 const MAX_SPEED = 12;
+// How freely the smoother lets the position move, in metres per second. Tuned on simulated
+// noisy walks and runs to read within a few percent; runs need more freedom to keep up.
+export const SMOOTHING: Record<ActivityType, number> = { walk: 2, run: 4 };
 
 const EARTH = 6_371_000;
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -39,30 +43,64 @@ export interface Fix {
   time: number;
 }
 
+interface Smoothed {
+  lat: number;
+  lng: number;
+  variance: number; // square metres
+  time: number;
+}
+
 export interface Track {
   meters: number;
   route: LatLng[];
-  last: Fix | null;
+  last: Fix | null; // the last point counted into distance
+  smooth?: Smoothed | null;
+  seen?: number; // readings received
+  used?: number; // readings kept
 }
 
-export const emptyTrack = (): Track => ({ meters: 0, route: [], last: null });
+export const emptyTrack = (): Track => ({ meters: 0, route: [], last: null, smooth: null, seen: 0, used: 0 });
 
 const round5 = (n: number) => Math.round(n * 1e5) / 1e5;
 
-// Adds one GPS fix to a track, skipping loose fixes, drift, and jumps.
-export function addFix(track: Track, fix: Fix): Track {
-  if (!(fix.accuracy <= MAX_ACCURACY)) return track;
-  const point: LatLng = [round5(fix.at[0]), round5(fix.at[1])];
-  if (!track.last) return { meters: track.meters, route: [...track.route, point], last: fix };
-  const step = distance(track.last.at, fix.at);
-  if (step < Math.max(MIN_STEP, fix.accuracy / 2)) return track;
-  const secs = (fix.time - track.last.time) / 1000;
-  if (secs > 0 && step / secs > MAX_SPEED) return track;
-  return { meters: track.meters + step, route: [...track.route, point], last: fix };
+// A simple Kalman filter: each reading pulls the position in proportion to how much it's trusted.
+function smoothFix(prev: Smoothed | null | undefined, fix: Fix, freedom: number): Smoothed {
+  const own = fix.accuracy * fix.accuracy;
+  if (!prev) return { lat: fix.at[0], lng: fix.at[1], variance: own, time: fix.time };
+  const secs = Math.max(0, (fix.time - prev.time) / 1000);
+  const variance = prev.variance + secs * freedom * freedom;
+  const gain = variance / (variance + own);
+  return {
+    lat: prev.lat + gain * (fix.at[0] - prev.lat),
+    lng: prev.lng + gain * (fix.at[1] - prev.lng),
+    variance: (1 - gain) * variance,
+    time: fix.time,
+  };
 }
 
-// After a pause, the next fix starts a fresh leg instead of counting the gap.
-export const breakTrack = (track: Track): Track => ({ ...track, last: null });
+// Adds one GPS reading to a track: drops loose readings and impossible jumps, smooths the
+// rest, and counts distance once the smoothed position has moved a few metres.
+export function addFix(track: Track, fix: Fix, type: ActivityType = 'walk'): Track {
+  const seen = (track.seen ?? 0) + 1;
+  if (!(fix.accuracy <= MAX_ACCURACY)) return { ...track, seen };
+  const prev = track.smooth;
+  if (prev) {
+    const secs = (fix.time - prev.time) / 1000;
+    const jump = distance([prev.lat, prev.lng], fix.at) - fix.accuracy;
+    if (secs > 0 && jump / secs > MAX_SPEED) return { ...track, seen };
+  }
+  const smooth = smoothFix(prev, fix, SMOOTHING[type]);
+  const used = (track.used ?? 0) + 1;
+  const here: Fix = { at: [smooth.lat, smooth.lng], accuracy: fix.accuracy, time: fix.time };
+  const point: LatLng = [round5(smooth.lat), round5(smooth.lng)];
+  if (!track.last) return { ...track, route: [...track.route, point], last: here, smooth, seen, used };
+  const step = distance(track.last.at, here.at);
+  if (step < MIN_STEP) return { ...track, smooth, seen, used };
+  return { meters: track.meters + step, route: [...track.route, point], last: here, smooth, seen, used };
+}
+
+// After a pause, the next reading starts a fresh leg instead of counting the gap.
+export const breakTrack = (track: Track): Track => ({ ...track, last: null, smooth: null });
 
 export const clock = (total: number) => {
   const s = Math.max(0, Math.round(total));
