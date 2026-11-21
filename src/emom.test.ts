@@ -20,11 +20,12 @@ describe('sets with timed rest', () => {
     expect(emomPhase({ ...run, done: 12 }, 0)).toMatchObject({ phase: 'finished' });
   });
 
-  it('alerts when rest ends, and nudges two minutes later', () => {
-    const alerts = alertsFor({ ...run, done: 3 }, 300_000);
-    expect(alerts).toEqual([
-      { at: 300_000, title: 'Rest over · set 4 of 12', body: 'Time for 20 push ups.' },
-      { at: 420_000, title: 'Set 4 of 12 is waiting', body: '20 push ups, then tap Done.' },
-    ]);
+  it('shows when rest ends straight away, alerts at the end, and nudges after', () => {
+    const alerts = alertsFor({ ...run, done: 3 }, 300_000, 0);
+    expect(alerts).toHaveLength(3);
+    expect(alerts[0]).toMatchObject({ at: 0, body: 'Set 4 of 12 next: 20 push ups.' });
+    expect(alerts[0].title).toMatch(/^Resting until \S/);
+    expect(alerts[1]).toEqual({ at: 300_000, title: 'Rest over · set 4 of 12', body: 'Time for 20 push ups.' });
+    expect(alerts[2]).toEqual({ at: 420_000, title: 'Set 4 of 12 is waiting', body: '20 push ups, then tap Done.' });
   });
 });

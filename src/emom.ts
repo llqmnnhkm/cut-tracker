@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { getStore, updateDay, updateSettings } from './store';
-import { cancelAlerts, scheduleAlerts, type AlertStatus, type PushAlert } from './push';
+import { cancelAlerts, clearShownAlerts, scheduleAlerts, type AlertStatus, type PushAlert } from './push';
 
 export interface EmomSetup {
   exercise: string;
@@ -52,11 +52,15 @@ export function emomPhase(run: Pick<EmomRun, 'done' | 'rounds' | 'restUntil' | '
   return { phase: 'set' as EmomPhase, set: run.done + 1, left: 0 };
 }
 
-// The alert for the end of a rest, and a nudge two minutes later in case it was missed.
-export function alertsFor(run: Pick<EmomRun, 'done' | 'rounds' | 'reps' | 'exercise'>, restUntil: number): PushAlert[] {
+const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+// A notice straight away showing when rest ends, the alert when it does, and a nudge
+// two minutes later in case that was missed. They share one slot, so each replaces the last.
+export function alertsFor(run: Pick<EmomRun, 'done' | 'rounds' | 'reps' | 'exercise'>, restUntil: number, now = Date.now()): PushAlert[] {
   const set = run.done + 1;
   const what = `${run.reps} ${run.exercise.toLowerCase()}`;
   return [
+    { at: now, title: `Resting until ${clockTime(restUntil)}`, body: `Set ${set} of ${run.rounds} next: ${what}.` },
     { at: restUntil, title: `Rest over · set ${set} of ${run.rounds}`, body: `Time for ${what}.` },
     { at: restUntil + 2 * 60_000, title: `Set ${set} of ${run.rounds} is waiting`, body: `${what}, then tap Done.` },
   ];
@@ -104,6 +108,7 @@ function setAlerts(alerts: PushAlert[]) {
 
 function clearAlerts() {
   void cancelAlerts();
+  void clearShownAlerts();
 }
 
 export function startEmom(date: string, setup: EmomSetup) {
@@ -142,8 +147,9 @@ export function skipRest() {
 
 export function pauseRest() {
   if (!current || current.restUntil === null || current.pausedLeft !== null) return;
-  set({ ...current, pausedLeft: Math.max(0, current.restUntil - Date.now()), restUntil: null });
-  clearAlerts();
+  const run = { ...current, pausedLeft: Math.max(0, current.restUntil - Date.now()), restUntil: null };
+  set(run);
+  setAlerts([{ at: Date.now(), title: 'Rest paused', body: `Set ${run.done + 1} of ${run.rounds} next. Open Cut Tracker to resume.` }]);
 }
 
 export function resumeRest() {

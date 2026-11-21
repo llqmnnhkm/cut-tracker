@@ -1,6 +1,9 @@
 // Lock screen alerts through the push server in push-server/. The server's address
 // comes in at build time; without it, or on a phone that can't take web push, this does nothing.
 
+// Must match the tag in public/push-sw.js, so each alert replaces the last.
+const ALERT_TAG = 'cut-tracker-session';
+
 const SERVER = (import.meta.env.VITE_PUSH_URL as string | undefined)?.replace(/\/$/, '');
 
 export interface PushAlert {
@@ -66,5 +69,16 @@ export async function cancelAlerts() {
     });
   } catch {
     // The server drops stale alerts on its own.
+  }
+}
+
+// Takes this app's notifications off the lock screen, for when they no longer apply.
+export async function clearShownAlerts() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    (await reg.getNotifications({ tag: ALERT_TAG })).forEach((n) => n.close());
+  } catch {
+    // Nothing to clear.
   }
 }
