@@ -3,7 +3,6 @@ import { Note, NumberField } from '../components';
 import { addDays, daysBetween, localToday, shortDate } from '../dates';
 import {
   ABOVE_ANY_CHECKPOINT_NOTE,
-  CHECKPOINTS,
   DECISION_DATE,
   DECISION_NOTE,
   PLAN_START,
@@ -14,20 +13,20 @@ import {
   GOAL_PACE_NOTE,
   PLAN_GOAL,
 } from '../plan';
-import { goalFor, isAboveDecisionLimit, showRebound, weeklyLoss, weightSeries, type WeightPoint } from '../rules';
-import { updateSettings, type Store, type WeightGoal } from '../store';
+import { checkpointsFor, checkpointsTowards, goalFor, isAboveDecisionLimit, showRebound, weeklyLoss, weightSeries, type WeightPoint } from '../rules';
+import { updateSettings, type Checkpoint, type Store, type WeightGoal } from '../store';
 
 const W = 340;
 const H = 230;
 const M = { top: 10, right: 12, bottom: 24, left: 30 };
 
-function Chart({ points, goal }: { points: WeightPoint[]; goal: WeightGoal }) {
+function Chart({ points, goal, checkpoints }: { points: WeightPoint[]; goal: WeightGoal; checkpoints: Checkpoint[] }) {
   const [selected, setSelected] = useState<string | null>(null);
 
   const lastLogged = points[points.length - 1]?.date ?? PLAN_START;
-  const end = [lastLogged, WEIGH_IN, goal.date].sort().pop()!;
+  const end = [lastLogged, WEIGH_IN, goal.date, ...checkpoints.map((c) => c.date)].sort().pop()!;
   const span = daysBetween(PLAN_START, end);
-  const values = [...points.map((p) => p.weight), ...CHECKPOINTS.map((c) => c.target), 82, goal.weight];
+  const values = [...points.map((p) => p.weight), ...checkpoints.map((c) => c.target), 82, goal.weight];
   const low = Math.floor(Math.min(...values) - 0.5);
   const high = Math.ceil(Math.max(...values) + 0.5);
 
@@ -79,7 +78,7 @@ function Chart({ points, goal }: { points: WeightPoint[]; goal: WeightGoal }) {
         <line class="goal-line" x1={M.left} x2={W - M.right} y1={y(goal.weight)} y2={y(goal.weight)} />
         <text class="goal-label" x={W - M.right - 2} y={y(goal.weight) - 5} text-anchor="end">Goal {goal.weight}</text>
         {goal.date >= PLAN_START && <circle class="goal-dot" cx={x(goal.date)} cy={y(goal.weight)} r="5" />}
-        {CHECKPOINTS.map((c) => (
+        {checkpoints.map((c) => (
           <rect key={c.date} class="checkpoint" x={x(c.date) - 4.5} y={y(c.target) - 4.5} width="9" height="9" rx="2" />
         ))}
         <defs>
@@ -200,11 +199,133 @@ function GoalCard({ store, latest }: { store: Store; latest: WeightPoint | undef
   );
 }
 
+function CheckpointsPanel({ store, latest }: { store: Store; latest: WeightPoint | undefined }) {
+  const custom = store.settings.checkpoints;
+  const list = checkpointsFor(store);
+  const goal = goalFor(store);
+  const today = localToday();
+  const [rows, setRows] = useState<{ date: string; target: string }[] | null>(null);
+  const [error, setError] = useState('');
+  const onDate = (d: string) => store.days[d]?.weight;
+
+  const edit = () => {
+    setError('');
+    setRows(list.map((c) => ({ date: c.date, target: c.target.toFixed(1) })));
+  };
+  const fill = () => {
+    const from = latest?.trend ?? latest?.weight;
+    if (from === undefined) return setError('Log a weight first, so the checkpoints can start from it.');
+    setError('');
+    setRows(checkpointsTowards(from, today, goal).map((c) => ({ date: c.date, target: c.target.toFixed(1) })));
+  };
+  const change = (i: number, key: 'date' | 'target', value: string) => setRows((r) => r!.map((row, j) => (j === i ? { ...row, [key]: value } : row)));
+
+  const parsed = rows?.map((r) => ({ date: r.date, target: Number(r.target.replace(',', '.')) }));
+  const bad = parsed?.some((c) => !/^\d{4}-\d{2}-\d{2}$/.test(c.date) || !Number.isFinite(c.target) || c.target < 30 || c.target > 250);
+  const sorted = parsed && !bad ? [...parsed].sort((a, b) => a.date.localeCompare(b.date)) : [];
+  const steep = sorted.some((c, i) => {
+    const prev = i === 0 ? (latest ? { date: latest.date, target: latest.trend } : null) : sorted[i - 1];
+    return prev && c.date > prev.date && weeklyLoss(prev.target, c.target, prev.date, c.date) > 1;
+  });
+  const save = () => {
+    if (!parsed || bad) return setError('Each checkpoint needs a date and a weight in kg.');
+    if (new Set(sorted.map((c) => c.date)).size !== sorted.length) return setError('Two checkpoints share a date.');
+    updateSettings({ checkpoints: sorted });
+    setRows(null);
+  };
+
+  if (rows) {
+    return (
+      <section class="panel">
+        <h3>Edit checkpoints</h3>
+        <p class="muted-text">Dates to check your weight against on the way to {goal.weight} kg by {shortDate(goal.date)}.</p>
+        <button type="button" class="btn btn-quiet" onClick={fill}>Fill in weekly up to my goal</button>
+        <ul class="cp-rows">
+          {rows.map((r, i) => (
+            <li key={i} class="cp-row">
+              <span class="inp">
+                <input type="date" aria-label={`Checkpoint ${i + 1} date`} value={r.date} onInput={(e) => change(i, 'date', e.currentTarget.value)} />
+              </span>
+              <span class="inp">
+                <input class="num" inputmode="decimal" aria-label={`Checkpoint ${i + 1} weight`} value={r.target} onInput={(e) => change(i, 'target', e.currentTarget.value)} />
+                <span class="field-unit">kg</span>
+              </span>
+              <button type="button" class="cp-remove" aria-label={`Remove checkpoint ${i + 1}`} onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          class="textlink"
+          onClick={() => setRows([...rows, { date: addDays(rows.length ? rows[rows.length - 1].date || today : today, 7), target: rows.length ? rows[rows.length - 1].target : String(goal.weight) }])}
+        >
+          + Add checkpoint
+        </button>
+        {steep && <p class="note">{GOAL_PACE_NOTE}</p>}
+        {error && <p class="field-error">{error}</p>}
+        <div class="button-row">
+          <button class="btn" type="button" onClick={save}>Save checkpoints</button>
+          <button class="btn btn-quiet" type="button" onClick={() => setRows(null)}>Cancel</button>
+        </div>
+        {custom && (
+          <button
+            type="button"
+            class="textlink textlink-quiet"
+            onClick={() => {
+              updateSettings({ checkpoints: undefined });
+              setRows(null);
+            }}
+          >
+            Go back to the plan's cut checkpoints
+          </button>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section class="panel">
+      <header class="week-head">
+        <b>{custom ? 'Checkpoints' : 'Cut checkpoints'}</b>
+        <button type="button" class="textlink" onClick={edit}>Edit</button>
+      </header>
+      {list.length === 0 ? (
+        <p class="muted-text">No checkpoints. Tap Edit to add some.</p>
+      ) : (
+        <table class="table">
+          <thead>
+            <tr><th scope="col">Date</th><th scope="col">Target</th><th scope="col">Logged</th></tr>
+          </thead>
+          <tbody>
+            {list.map((c) => {
+              const w = onDate(c.date);
+              const met = w !== undefined && w <= c.target;
+              return (
+                <tr key={c.date} class={c.date === today ? 'is-today' : undefined}>
+                  <td>{shortDate(c.date)}</td>
+                  <td class="num">≤ {c.target.toFixed(1)}</td>
+                  <td class="num">
+                    {w !== undefined ? w.toFixed(1) : '–'}
+                    {met && <span class="pill">Met</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {!custom && list.every((c) => c.date < today) && <p class="muted-text">These were the cut's dates. Tap Edit to set new ones for your current goal.</p>}
+      {list.some((c) => c.date < today && c.date !== goal.date && (onDate(c.date) ?? 0) > c.target) && <p class="muted-text">{ABOVE_ANY_CHECKPOINT_NOTE}</p>}
+    </section>
+  );
+}
+
 export function WeightView({ store }: { store: Store }) {
   const points = weightSeries(store);
   const today = localToday();
   const latest = points[points.length - 1];
-  const onDate = (d: string) => store.days[d]?.weight;
   const goal = goalFor(store);
 
   return (
@@ -232,40 +353,14 @@ export function WeightView({ store }: { store: Store }) {
       <GoalCard store={store} latest={latest} />
 
       <section class="panel">
-        <Chart points={points} goal={goal} />
+        <Chart points={points} goal={goal} checkpoints={checkpointsFor(store)} />
       </section>
       <Note>{SWING_NOTE}</Note>
 
       {isAboveDecisionLimit(store) && today >= DECISION_DATE && today <= WEIGH_IN && <Note>{DECISION_NOTE}</Note>}
       {showRebound(today) && <Note>{REBOUND_NOTE}</Note>}
 
-      <section class="panel">
-        <h3>Cut checkpoints</h3>
-        <table class="table">
-          <thead>
-            <tr><th scope="col">Date</th><th scope="col">Target</th><th scope="col">Logged</th></tr>
-          </thead>
-          <tbody>
-            {CHECKPOINTS.map((c) => {
-              const w = onDate(c.date);
-              const met = w !== undefined && w <= c.target;
-              return (
-                <tr key={c.date}>
-                  <td>{shortDate(c.date)}</td>
-                  <td class="num">≤ {c.target.toFixed(1)}</td>
-                  <td class="num">
-                    {w !== undefined ? w.toFixed(1) : '–'}
-                    {met && <span class="pill">Met</span>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {CHECKPOINTS.some((c) => c.date !== WEIGH_IN && (onDate(c.date) ?? 0) > c.target) && (
-          <p class="muted-text">{ABOVE_ANY_CHECKPOINT_NOTE}</p>
-        )}
-      </section>
+      <CheckpointsPanel store={store} latest={latest} />
 
       <section class="panel">
         <h3>All entries</h3>

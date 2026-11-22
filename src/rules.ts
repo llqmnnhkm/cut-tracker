@@ -15,7 +15,7 @@ import {
   type PhaseId,
   type SessionId,
 } from './plan';
-import type { DayLog, Meal, Store } from './store';
+import type { Checkpoint, DayLog, Meal, Store } from './store';
 
 export function parseAmount(raw: string): number | undefined {
   const clean = raw.trim();
@@ -135,7 +135,21 @@ export function weightSeries(store: Store): WeightPoint[] {
   });
 }
 
-export const nextCheckpoint = (date: string) => CHECKPOINTS.find((c) => c.date >= date) ?? null;
+export const checkpointsFor = (store: Store): Checkpoint[] => store.settings.checkpoints ?? CHECKPOINTS;
+
+export const nextCheckpoint = (store: Store, date: string) => checkpointsFor(store).find((c) => c.date >= date) ?? null;
+
+// Weekly checkpoints on a straight line from a weight today to the goal, ending on the goal date.
+export function checkpointsTowards(fromKg: number, fromDate: string, goal: { weight: number; date: string }): Checkpoint[] {
+  const total = daysBetween(fromDate, goal.date);
+  if (total <= 0) return [{ date: goal.date, target: goal.weight }];
+  const out: Checkpoint[] = [];
+  for (let d = 7; d < total; d += 7) {
+    out.push({ date: addDays(fromDate, d), target: Math.round((fromKg + ((goal.weight - fromKg) * d) / total) * 10) / 10 });
+  }
+  out.push({ date: goal.date, target: goal.weight });
+  return out;
+}
 
 export const isAboveDecisionLimit = (store: Store) => (store.days[DECISION_DATE]?.weight ?? 0) > DECISION_LIMIT;
 

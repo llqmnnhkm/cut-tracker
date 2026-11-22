@@ -5,7 +5,6 @@ import { ActivityCard, WeekStrip } from '../ActivityCard';
 import { removeActivity } from '../store';
 import {
   ABOVE_CHECKPOINT_NOTE,
-  CHECKPOINTS,
   DECISION_DATE,
   DECISION_NOTE,
   FLAGS,
@@ -22,7 +21,7 @@ import {
   type FlagId,
   type SessionId,
 } from '../plan';
-import { dayPlan, goalFor, isAboveDecisionLimit, nextCheckpoint, phaseFor, showRebound, targetsFor, totals } from '../rules';
+import { checkpointsFor, dayPlan, goalFor, isAboveDecisionLimit, nextCheckpoint, phaseFor, showRebound, targetsFor, totals } from '../rules';
 import { updateDay, type Store } from '../store';
 import { sessionLabel } from '../workout';
 
@@ -93,8 +92,8 @@ export function TodayView({ store, date, today, setDate }: DateNav & { store: St
   const hasWaterTarget = date <= '2026-11-12';
   const steps = log?.steps ?? 0;
   const hasRange = sum.kcalLow !== sum.kcalHigh;
-  const checkpointToday = CHECKPOINTS.find((c) => c.date === date);
-  const next = nextCheckpoint(date);
+  const checkpointToday = checkpointsFor(store).find((c) => c.date === date);
+  const next = nextCheckpoint(store, date);
 
   const setFlag = (id: FlagId, on: boolean) =>
     updateDay(date, (d) => ({ ...d, flags: { ...d.flags, [id]: on } }));

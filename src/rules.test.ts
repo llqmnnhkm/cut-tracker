@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { addDays, daysBetween, localToday, shortDate, weekdayName } from './dates';
 import { CHECKPOINTS, CUT_SCHEDULE, FLAGS, PHASES, REBOUND_NOTE } from './plan';
 import * as plan from './plan';
-import { dayPlan, goalFor, weeklyLoss, isAboveDecisionLimit, parseAmount, phaseFor, sessionFor, showRebound, targetsFor, totals, weightSeries } from './rules';
+import { checkpointsFor, checkpointsTowards, dayPlan, goalFor, weeklyLoss, isAboveDecisionLimit, parseAmount, phaseFor, sessionFor, showRebound, targetsFor, totals, weightSeries } from './rules';
 import { emptyStore, parseStore, type DayLog, type Store } from './store';
 
 const withDays = (days: Record<string, DayLog>): Store => ({ ...emptyStore(), days });
@@ -225,5 +225,20 @@ describe('weight goal', () => {
     expect(weeklyLoss(80, 78, '2026-12-01', '2026-12-29')).toBeCloseTo(0.5);
     expect(weeklyLoss(80, 78, '2026-12-01', '2026-12-08')).toBeCloseTo(2);
     expect(weeklyLoss(78, 80, '2026-12-01', '2026-12-29')).toBe(0);
+  });
+});
+
+describe('checkpoints', () => {
+  it('uses the plan until you set your own', () => {
+    expect(checkpointsFor(emptyStore())[0]).toEqual({ date: '2026-11-07', target: 80.5 });
+    const mine = [{ date: '2026-12-01', target: 80 }];
+    expect(checkpointsFor({ ...emptyStore(), settings: { ...emptyStore().settings, checkpoints: mine } })).toEqual(mine);
+  });
+
+  it('spaces checkpoints weekly from today to the goal', () => {
+    const list = checkpointsTowards(80.9, '2026-11-22', { weight: 78, date: '2026-12-31' });
+    expect(list.map((c) => c.date)).toEqual(['2026-11-29', '2026-12-06', '2026-12-13', '2026-12-20', '2026-12-27', '2026-12-31']);
+    expect(list[0].target).toBeCloseTo(80.4, 1);
+    expect(list[list.length - 1]).toEqual({ date: '2026-12-31', target: 78 });
   });
 });

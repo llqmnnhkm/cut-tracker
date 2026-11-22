@@ -39,6 +39,12 @@ export interface Settings {
   heightCm?: number;
   strideCm?: number; // walking step length measured from a real walk
   emom?: EmomSetup;
+  checkpoints?: Checkpoint[];
+}
+
+export interface Checkpoint {
+  date: string;
+  target: number;
 }
 
 export interface WeightGoal {

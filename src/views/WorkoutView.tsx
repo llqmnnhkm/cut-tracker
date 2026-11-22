@@ -6,6 +6,7 @@ import { setCheck } from '../checks';
 import { buildChecklist, sessionLabel, timerRun, type CheckItem } from '../workout';
 import { SessionCoin } from './TodayView';
 import { EmomPanel } from '../EmomPanel';
+import { WorkoutHistory } from '../History';
 import { useEmom } from '../emom';
 
 interface Props extends DateNav {
@@ -107,6 +108,8 @@ export function WorkoutView({ store, date, today, setDate, onSetDone, onSessionO
           )}
         </>
       )}
+
+      <WorkoutHistory store={store} />
     </>
   );
 }
